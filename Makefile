@@ -1,7 +1,7 @@
 # Makefile for ThuThesis
 
 PACKAGE = thuthesis
-THESIS  = thuthesis-example
+THESIS  = main
 SPINE   = spine
 
 SOURCES = $(PACKAGE).ins $(PACKAGE).dtx
