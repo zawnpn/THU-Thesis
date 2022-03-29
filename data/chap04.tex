@@ -1,9 +1,352 @@
 % !TeX root = ../main.tex
 
-\chapter{444}
+\chapter{基于模型强化学习样本筛选算法}
 
-444
+\section{环境模型的集成学习与筛选}\label{sec:model-method}
 
-\section{444}
+传统的不确定性环境建模和集成方法，虽然已经能够较好地模拟真实复杂环境并且捕捉到环境的不确定性 \cite{duan2007multi}，但并不能很好地控制模拟的精准程度，本课题在不确定性环境建模的基础上，结合传统集成学习的方法，设计了模型的集成和筛选机制。
 
-444
+具体地，在本课题中，首先训练学习一组环境模型集合$\{\mathcal{M}_{\phi_1},\mathcal{M}_{\phi_2},\ldots\}$，集合中每一个环境模型都是一个概率神经网络，其输出$\mu_{\phi_i},\sigma_{\phi_i}$构成高斯分布$\mathcal{N}(\mu_{\phi_i}(s,a),\sigma_{\phi_i}(s,a))$，环境模型对于下一时刻的状态预测则服从该分布，即
+
+\begin{equation}
+    s^\prime \sim \mathcal{M}_{\phi_i}(s,a) = \mathcal{N}(\mu_{\phi_i}(s,a),\sigma_{\phi_i}(s,a))
+\end{equation}
+
+在训练环境模型的同时，根据真实环境中采样得到的真实样本$(S,A)$，可以计算并记录模型的期望偏差：
+\begin{equation}
+    \mathrm{bias}(\phi_i) = \underset{S,A\sim \pi,\mathcal{P}}{\mathbb{E}}\|\mathcal{M}_{\phi_i}(S,A)-\mathcal{P}(S,A)\|
+\end{equation}
+
+其中$\|\cdot\|$是状态空间$\mathcal{S}$上的范数距离，该式的含义为所训练的环境模型$\mathcal{M}$与真实环境$\mathcal{P}$之间的范数意义距离。在上述模型集合的基础上，首先根据所计算的$\mathrm{bias}(\phi_i)$大小进行升序重排，并设定一个概率参数$\alpha\in(0,1]$，筛选出$\mathrm{bias}$在$\alpha$分位数以前的模型，保留得到筛选后的模型集合$\mathcal{M}^\alpha = \{\mathcal{M}_{\phi_1},\mathcal{M}_{\phi_2},\ldots,\mathcal{M}_{\phi_{N_\alpha}}\}$，其中$N_\alpha$是前面所描述的升序排序后的集合索引$\left\{1,2,\ldots,N_\alpha,\ldots\right\}$中的$\alpha$分位数。
+
+需要注意的是，用于集成的不确定性模型集合并不是$\mathrm{bias}$越小越好，过小的$\mathrm{bias}$可能意味着过拟合的环境模型。
+
+参数$\alpha$的重要用处是可以动态地调整模型集合的整体精确性，它能与下一节将介绍的参数$\beta$协作调整强化学习的收益性能与鲁棒性。
+
+\section{环境模型的数据生成与筛选}\label{sec:rollout-method}
+
+传统的基于模型的强化学习算法在得到环境模型后，往往是以期望收益为目标进行最大化优化，但是期望意义下的最优并不意味着在任意环境下都能有优秀的表现，在实际部署策略的时候，当面临一些受干扰的信息不足的状态，策略容易做出一些不合理甚至危险的决策，导致强化学习在实际部署中不稳定。
+
+为了解决这一问题，本课题提出了一种主动关注较坏情况的样本筛选机制，适当延缓强化学习训练速度，提升决策策略的鲁棒性。
+
+具体地，本课题基于上一节得到的$\mathcal{M}^{\alpha}$模型集合，在每一步都随机抽取一个模型$\mathcal{M}_{\phi_i}\in\mathcal{M}^\alpha$，然后使用该模型进行下一时刻的状态预测，即$s_{t+1}\sim \mathcal{M}_{\phi_t}(s_t,a_t), \phi_t\in\Phi_\alpha$，这样的一组状态和动作组成模拟样本$x=\left(s_{t+1},s_t,a_t\right)$，填入缓存池，然后相似地以一个概率参数$\beta\in(0,1]$进行筛选，从中挑选出反馈奖励值相对较低的样本，得到一个筛选后的$\beta$分位数样本集合$\mathcal{B}_\beta^{\pi,\mathcal{M}^\alpha}=\left\{x|x\in\mathcal{B}^{\pi,\mathcal{M}^\alpha},r(x)\leq r_\beta(\mathcal{B}^{\pi,\mathcal{M}^\alpha})\right\}$，其中$\mathcal{B}^{\pi,\mathcal{M}^\alpha}=\left\{x|x\triangleq\left(s_{t+1},s_t,a_t\right)\sim\pi,\mathcal{M}^\alpha\right\}$， $r_\beta(\mathcal{B}^{\pi,\mathcal{M}^\alpha})$ 是缓存池 $\mathcal{B}^{\pi,\mathcal{M}^\alpha}$的$\beta$分位数。
+
+缓存池里的模拟样本构成的期望收益记为$\eta^{\pi,\mathcal{M}^\alpha}_\beta$。本课题已经证明，加入样本筛选机制后的模拟期望收益，与真实环境中期望收益的差异为一个受参数$\beta$控制的上界，如定理 \ref{the:beta-drop-bound} 所述。
+
+\begin{theorem}\label{the:beta-drop-bound}
+
+记$R_{m}$为奖励函数$r(s,a)$的上确界, 即 $R_{m}=\underset{s\in\mathcal{S},a\in\mathcal{A}}{\sup}r(s,a)$，在环境模型$\mathcal{M}_\phi$上使用样本筛选机制后，所得期望收益与真实环境中期望收益的差异值存在误差上界：
+
+\begin{equation}
+    |\eta_\beta^{\pi, \mathcal{M}_{\phi}} - \eta^{\pi,\mathcal{M}_{\phi}}| \triangleq \varepsilon(\beta) \leq \frac{1-\beta}{1-\gamma}R_{m}
+\label{eq:eps-beta}
+\end{equation}
+
+\end{theorem}
+
+定理\ref{the:beta-drop-bound}的重要意义是，即使筛选掉一批模拟样本，环境模型给出的模拟数据仍具备一定的可靠性，该可靠性由概率参数$\beta$控制。更进一步，将\ref{sec:model-method}中的模型筛选机制加入进来，本课题已经证明，在这两个筛选机制的共同作用下，模型给出的模拟数据依然是可靠并且可控的，如定理\ref{the:MBDP-bound}所述。
+
+\begin{theorem}\label{the:MBDP-bound}
+
+加入模型筛选机制和样本筛选机制后的模拟期望收益$\eta_\beta^{\pi, \mathcal{M}^\alpha}$与真实环境$\mathcal{P}$中的期望收益$\eta^{\pi, \mathcal{P}}$的差异值存在误差上界:
+
+\begin{equation}
+\left|\eta_\beta^{\pi, \mathcal{M}^\alpha}-\eta^{\pi, \mathcal{P}}\right|\leq D_{\alpha,\beta}(\mathcal{M})
+\end{equation}
+其中
+\begin{equation}\label{eq:MBDP-bound}
+D_{\alpha,\beta}(\mathcal{M})\triangleq\frac{\alpha\gamma K}{1-\gamma}\delta_{\mathcal{M}}+\frac{\alpha (1-\beta)}{1-\gamma}R_{m}
+\end{equation}
+
+\end{theorem}
+
+定理\ref{the:MBDP-bound}的重要意义是，在加入模型筛选机制和样本筛选机制后，模型给出的模拟数据与传统的模拟方式相比只存在一个可控的误差上界，对强化学习的训练带来的误差影响并不大，在该可控范围内，如前文对筛选机制的具体描述，本课题能够得到鲁棒性更好的决策策略。
+
+\section{MBDP算法}
+
+\begin{figure}[tbh]
+\centering
+\includegraphics[width=\textwidth]{figures/mbdp.pdf}
+\caption{算法整体框架结构。}
+\label{fig:algo-structure}
+\end{figure}
+
+由于在强化学习中模拟误差越小，算法的收敛性能则越好，观察公式(\ref{eq:MBDP-bound})中的误差上界$D_{\alpha,\beta}(\mathcal{M})$可知，强化学习的算法性能与参数$\alpha$成反比，与参数$\beta$成正比，又根据\ref{sec:model-method}节和\ref{sec:rollout-method}节的介绍可知，策略的鲁棒性显然与参数$\alpha$成正比，与参数$\beta$成反比，恰好与前面的作用效果相反。
+
+因此，本课题可以动态性地调整参数$\alpha,\beta$来取得算法性能和最终策略鲁棒性之间的平衡，从而得到不同属性的强化学习决策策略：
+
+\begin{itemize}
+    \item \textbf{平衡的决策策略}：将参数$\alpha$和$\beta$调整为适中大小的概率值，适用于一般的普通环境；
+    \item \textbf{收益性能较高的决策策略}：将参数$\alpha$调整为较小的概率值，$\beta$调整为较大的概率值，适用于相对稳定的环境；
+    \item \textbf{鲁棒性较好的决策策略}：将参数$\alpha$调整为较大的概率值，$\beta$调整为较小的概率值，适用于干扰较大的环境。
+\end{itemize}
+
+基于\ref{sec:model-method}节和\ref{sec:rollout-method}节的提出的改进方案思路，将其整合进传统的基于模型的强化学习算法框架，得到改进的算法，算法整体框架如图\ref{fig:algo-structure}所示。
+
+首先通过与环境交互产生样本，用于训练概率模型并集成模拟，两个筛选模块作为主要改进加入到模拟数据生成的环节中，最终提供给策略优化公式对策略$\pi(a|s)$进行优化，并进行下一轮迭代。
+
+\section{MBDP算法的理论分析}
+
+In Appendix A, we will provide proofs for Theorem \ref{the:robustness}, Lemma \ref{lem:beta-drop-bound}, Theorem \ref{the:MBDP-bound} ,and Proposition \ref{prop:performance}. Note that the numbering and citations in the appendices are referenced from the main manuscript.
+
+\subsection{Proof of Theorem \ref{the:robustness}}
+
+\begin{proof}
+Recall the definition of $\mathrm{CVaR}$ (\ref{eq:def-cvar}) and $V_\alpha^{\pi,\mathcal{M}}$
+(\ref{def:eta-beta}), we need to take the negative value of rewards to represent the loss in the sense of CVaR. Then we have that,
+
+\begin{align*}
+\mathrm{CVaR}_\alpha(-V^{\pi,\mathcal{M}}) &= \mathbb{E}\left[-V^{\pi,\mathcal{M}}\mid -V^{\pi,\mathcal{M}} \geq \mathrm{VaR}_\alpha(-V^{\pi,\mathcal{M}})\right]\\
+&=\mathbb{E}\left[-{\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right]\mid -{\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right] \geq \mathrm{VaR}_\alpha(-V^{\pi,\mathcal{M}})\right]\\
+&=-\mathbb{E}\left[{\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right]\mid {\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right] \leq -\mathrm{VaR}_\alpha(-V^{\pi,\mathcal{M}})\right]\\
+\end{align*}
+
+Obviously, the condition of ${\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right] \leq -\mathrm{VaR}_\alpha(-V^{\pi,\mathcal{M}})$ in the above equation exactly meets our definition of $\mathcal{B}_\alpha^{\pi,\mathcal{M}}$, that is, eqaution (\ref{def:batch-alpha-beta}). Then we can prove the first part of Theorem \ref{the:robustness}
+
+\begin{equation}
+-\mathrm{CVaR}_\alpha(-V^{\pi,\mathcal{M}}) = \mathbb{E}\left[{\sum}_{\mathcal{B}_\alpha^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right]\right] = V_\alpha^{\pi,\mathcal{M}}
+\end{equation}
+
+Considering $\mathbb{E}_{\hat{\mathcal{P}}}[-V^{\pi,\mathcal{M}}]$, recall the definition of $\hat{\mathcal{P}}$, we have that
+
+\begin{align*}
+    \mathbb{E}_{\hat{\mathcal{P}}}[V^{\pi,\mathcal{M}}] &= -\mathbb{E}_{\hat{\mathcal{P}}}[-V^{\pi,\mathcal{M}}]\\
+    &= -\sum_{(s_0,\ldots,s_T)\in\mathcal{S}^{T+1}}\mathcal{P}_0(s_0)\delta_0(s_0)\prod_{t=1}^{T}\mathcal{P}_t(s_t\mid s_{t-1})\delta_t(s_t\mid s_{t-1})\cdot (-V^{\pi,\mathcal{M}})\\
+    &= \sum_{(s_0,\ldots,s_T)\in\mathcal{S}^{T+1}}\mathcal{P}(s_0,\ldots,s_T)\delta_0(s_0)\prod_{t=1}^{T}\delta_t(x_t\mid x_{t-1})\cdot V^{\pi,\mathcal{M}}\\
+    &\triangleq \sum_{(s_0,\ldots,s_T)\in\mathcal{S}^{T+1}}\mathcal{P}(s_0,\ldots,s_T)\delta(s_0,\ldots,s_T)\cdot V^{\pi,\mathcal{M}}
+\end{align*}
+
+Since $\delta$ is the random perturbation to the environment as we defined, it's intuitive that
+
+\begin{equation}\label{eq:delta-exp}
+    \mathbb{E}\left[\delta(s_0,\ldots,s_T)\right] = \sum_{(s_0,\ldots,s_T)\in\mathcal{S}^{T+1}}\mathcal{P}(s_0,\ldots,s_T)\delta(s_0,\ldots,s_T) = 1
+\end{equation}
+
+Recall the definition of $\Delta_\alpha$ in (\ref{eq:supp-perturbation}), we can prove the second part of Theorem \ref{the:robustness}
+
+\begin{align}
+    \sup\limits_{\Delta_\alpha}\mathbb{E}_{\hat{\mathcal{P}}}[V^{\pi,\mathcal{M}}] &= \sup\limits_{\delta(s_0,\ldots,s_T)\leq\frac{1}{\alpha}}\sum_{(s_0,\ldots,s_T)\in\mathcal{S}^{T+1}}\mathcal{P}(s_0,\ldots,s_T)\delta(s_0,\ldots,s_T)\cdot V^{\pi,\mathcal{M}}\notag\\
+    &=-\mathrm{CVaR}_\alpha(-V^{\pi,\mathcal{M}})\label{proof:cvar-eq}
+\end{align}
+
+The last equation (\ref{proof:cvar-eq}) is obtained by equation (\ref{eq:delta-exp}) and the Representation Theorem [22] for CVaR.
+
+\end{proof}
+
+\subsection{Proof of Lemma \ref{lem:beta-drop-bound}}
+
+To prove Lemma \ref{lem:beta-drop-bound}, we need to introduce two useful lemmas.
+
+\begin{lemma}\label{lem:proof-for-lem41}
+
+Define
+
+\begin{equation}\label{def:G-sa}
+G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E}}{{V}^{\pi,\mathcal{M}}}(\hat{s}') - \underset{s'\sim\mathcal{P}(\cdot|s,a)}{\mathbb{E}}{{V}^{\pi,\mathcal{M}}}(s')
+\end{equation}
+For any policy $\pi$ and dynamical models $\mathcal{M},\mathcal{M}'$, we have that
+
+\begin{equation}
+{V}^{\pi,\mathcal{M}'} - {V}^{\pi,\mathcal{M}} = \frac{\gamma}{1-\gamma}\underset{S,A\sim\pi,\mathcal{M}}{\mathbb{E}}\left[G^{\pi,\mathcal{M}'}(S,A)\right]
+\end{equation}
+
+\end{lemma}
+
+Lemma \ref{lem:proof-for-lem41} is a directly cited theorem in existing work (Lemma 4.3 in [31]), we make some modifications to fit our subsequent conclusions. With the above lemma, we first propose Lemma \ref{lem:mb-bound}.
+
+\begin{lemma}\label{lem:mb-bound}
+Suppose the expected return for model-based methods ${V}^{\pi,\mathcal{M}}$ is Lipschitz continuous on the state space $\mathcal{S}$, $K$ is the Lipschitz constant, $\mathcal{P}$ is the transition distribution of environment, then
+\begin{equation}
+\left|{V}^{\pi, \mathcal{M}}-{V}^{\pi, \mathcal{P}}\right| \leq\frac{\gamma}{1-\gamma}K\cdot\mathrm{bias}
+\end{equation}
+where
+\begin{equation}
+\mathrm{bias} \triangleq \underset{s,a\sim \pi,\mathcal{P}}{\mathbb{E}}\left\|\mathcal{M}(s, a)-\mathcal{P}(s, a)\right\|
+\end{equation}
+
+\label{theo:mb-bound}
+\end{lemma}
+
+In Lemma \ref{lem:mb-bound}, we make the assumption that the expected return ${V}^{\pi,\mathcal{M}}(s)$ on the estimated model $\mathcal{M}$ is \textit{Lipschitz continuous} w.r.t any norm $\|\cdot\|$, i.e.
+
+\begin{equation}\label{assum:lip}
+    \left|{V}^{\pi,\mathcal{M}}(s)-{V}^{\pi,\mathcal{M}}(s^{\prime})\right| \leq K\left\|s-s^{\prime}\right\|, \forall s, s^{\prime} \in \mathcal{S}
+\end{equation}
+where $K\in \mathbb{R}^+$ is a \textit{Lipschitz constant}. This assumption means that the closer states should give the closer value estimation, which should hold in most scenarios.
+
+\begin{proof}
+
+By definition of $G^{\pi,\mathcal{M}}(s,a)$ in (\ref{def:G-sa}) and Assumption (\ref{assum:lip}), i.e., ${V}^{\pi,\mathcal{M}}(s)$ is \textit{Lipschitz continuous}, we have that
+
+\begin{equation}\label{eq:G-leq}
+|G^{\pi,\mathcal{M}}(s,a)|\leq K\|\mathcal{M}(s,a)-\mathcal{P}(s,a)\|
+\end{equation}
+Then, we can show that
+
+\begin{align*}
+\left|{V}^{\pi, \mathcal{M}}-{V}^{\pi, \mathcal{P}}\right| &= \frac{\gamma}{1-\gamma}\left|\underset{s,a\sim\pi,\mathcal{P}}{\mathbb{E}}\left[G^{\pi,\mathcal{M}}(s,a)\right]\right| \tag{By Lemma \ref{lem:proof-for-lem41}}\\
+&\leq \frac{\gamma}{1-\gamma}\underset{s,a\sim\pi,\mathcal{P}}{\mathbb{E}}\left[\left|G^{\pi,\mathcal{M}}(s,a)\right|\right] \tag{By Triangle Inequality}\\
+&\leq \frac{\gamma}{1-\gamma}\underset{s,a\sim\pi,\mathcal{P}}{\mathbb{E}}K\|\mathcal{M}(s,a)-\mathcal{P}(s,a)\| \tag{By equation (\ref{eq:G-leq})}\\
+&= \frac{\gamma}{1-\gamma}K\cdot\underset{s,a\sim\pi,\mathcal{P}}{\mathbb{E}}\|\mathcal{M}(s,a)-\mathcal{P}(s,a)\|\\
+&\triangleq \frac{\gamma}{1-\gamma}K\cdot\mathrm{bias}
+\end{align*}
+
+\end{proof}
+
+\newpage
+
+Now we prove Lemma \ref{lem:beta-drop-bound}.
+
+\begin{proof}
+
+For two disjoint sets $A$ and $B$, i.e., $A\cap B=\varnothing$, there are the following property
+
+\begin{equation}
+    \mathbb{E}_{A\cup B}[X] = \mathbb{E}_A[X]\mathrm{P}(A)+\mathbb{E}_B[X]\mathrm{P}(B)
+\end{equation}
+
+By this property,
+
+\begin{align*}
+    &\mathbb{E}\left[{\sum}_{s_0\in\mathcal{S},\{a_0,s_1,\ldots\} \sim\pi,\mathcal{M}_\phi}\left[\gamma^t r(s_t,a_t)\right]\right] \\
+    &= (1-\alpha)\cdot \mathbb{E}\left[{\sum}_{\{s_0,a_0,\ldots\} \sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right] + \alpha\cdot\mathbb{E}\left[{\sum}_{\{s_0,a_0,\ldots\} \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]
+\end{align*}
+
+Recall the definition (\ref{def:eta-s}), (\ref{def:eta-expectation}) and (\ref{def:eta-beta}), we have that
+
+\begin{align}
+{V}^{\pi,\mathcal{M}_\phi}_\alpha&=\mathbb{E}\left[{\sum}_{\{s_0,a_0,\ldots\} \sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\notag\\
+&=\frac{1}{1-\alpha}\mathbb{E}\left[{\sum}_{s_0\in\mathcal{S},\{a_0,s_1,\ldots\} \sim\pi,\mathcal{M}_\phi}\left[\gamma^t r(s_t,a_t)\right]\right]-\frac{\alpha}{1-\alpha}\mathbb{E}\left[{\sum}_{\{s_0,a_0,\ldots\} \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\notag\\
+&=\frac{1}{1-\alpha}\underset{s\in{\mathcal{S}}}{\mathbb{E}}\left[{V}^{\pi,\mathcal{M}_\phi}(s)\right]-\frac{\alpha}{1-\alpha}\mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\notag\\
+&=\frac{1}{1-\alpha}{V}^{\pi,\mathcal{M}_\phi}-\frac{\alpha}{1-\alpha}\mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\label{proof:lem42p1}
+\end{align}
+
+% Where $\tau\triangleq\{s_0,a_0,\ldots\}$; $\mathbb{E}\Big[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\Big]$ is a term related to variable $\pi,\mathcal{M}_\phi$ and $\alpha$ which can be denoted by $\epsilon^{\pi,\mathcal{M}_\phi}_\alpha$. For simplicity, we omit it as $\epsilon_\alpha$. Recall the definition (\ref{def:batch-alpha-beta}) and  $\mathrm{R}_{m}=\underset{s\in\mathcal{S},a\in\mathcal{A}}{\sup}r(s,a)$, we have
+
+Where $\tau\triangleq\{s_0,a_0,\ldots\}$. Recall the definition (\ref{def:batch-alpha-beta}) and  $\mathrm{R}_{m}=\underset{s\in\mathcal{S},a\in\mathcal{A}}{\sup}r(s,a)$, we have
+
+\begin{align*}
+\mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right] &\leq\int_{\tau\not\sim{\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}}\left[\sum_{t=0}^\infty\gamma^t \mathrm{R}_m\right]p(\tau)\mathrm{d}\tau\\
+&=\left[\sum_{t=0}^\infty\gamma^t\right]\mathrm{R}_m\int_{\tau\not\sim{\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}}p(\tau)\mathrm{d}\tau\\
+&= \frac{1}{1-\gamma}\mathrm{R}_m \int_{\tau\not\sim{\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}}p(\tau)\mathrm{d}\tau\\
+&=\frac{\alpha}{1-\gamma}\mathrm{R}_m \tag{By definition of $\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}$}\\
+\end{align*}
+
+Similarly,
+
+\begin{align*}
+V^{\pi,\mathcal{M}_\phi} = \mathbb{E}\left[{\sum}_{\tau \sim\mathcal{B}^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right] &\leq\int_{\tau \sim\mathcal{B}^{\pi,\mathcal{M}_\phi}}\left[\sum_{t=0}^\infty\gamma^t \mathrm{R}_m\right]p(\tau)\mathrm{d}\tau\\
+&=\left[\sum_{t=0}^\infty\gamma^t\right]\mathrm{R}_m\int_{\tau \sim\mathcal{B}^{\pi,\mathcal{M}_\phi}}p(\tau)\mathrm{d}\tau\\
+&= \frac{1}{1-\gamma}\mathrm{R}_m \int_{\tau \sim\mathcal{B}^{\pi,\mathcal{M}_\phi}}p(\tau)\mathrm{d}\tau\\
+&=\frac{1}{1-\gamma}\mathrm{R}_m\\
+\end{align*}
+
+Based on the above two inequalities and equation (\ref{proof:lem42p1}), we have that
+
+\begin{align}
+|{V}_\alpha^{\pi, \mathcal{M}_{\phi}} - {V}^{\pi,\mathcal{M}_{\phi}}| &=  \left|\frac{\alpha}{1-\alpha}V^{\pi,\mathcal{M}_\phi}-\frac{\alpha}{1-\alpha}\mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\right| \notag\\
+&\leq\frac{\alpha}{1-\alpha}\left(\left|V^{\pi,\mathcal{M}_\phi}\right|+\left|\mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\right|\right)\notag\\
+&\leq \frac{\alpha}{1-\alpha}\left(\frac{1}{1-\gamma}\mathrm{R}_m+\frac{\alpha}{1-\gamma}\mathrm{R}_m\right) \notag\\
+&=\frac{\alpha(1+\alpha)}{(1-\alpha)(1-\gamma)}\mathrm{R_{m}} \label{eq:lem42}
+\end{align}
+
+\end{proof}
+
+
+
+\subsection{Proof of Theorem \ref{the:MBDP-bound}}
+
+\begin{proof}
+
+With Lemma \ref{lem:mb-bound} and Lemma \ref{lem:beta-drop-bound}, we can show that
+
+\begin{align}
+\left|{V}_\alpha^{\pi, \mathcal{M}^\beta}-{V}^{\pi, \mathcal{P}}\right|&=\left|\int_{\Phi_\beta}{V}_\alpha^{\pi, \mathcal{M}_{\phi}}p(\phi)\mathrm{d}\phi-{V}^{\pi, \mathcal{P}}\right| \notag\\
+&=\left|\int_{\Phi_\beta}\left({V}_\alpha^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right)p(\phi)\mathrm{d}\phi\right| \notag\\
+&\leq\int_{\Phi_\beta}\left|{V}_\alpha^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right|p(\phi)\mathrm{d}\phi \tag{By Triangle Inequality}\\
+&\leq\int_{\Phi_\beta}\left(\left|{V}^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right|+\left|{V}_\alpha^{\pi, \mathcal{M}_{\phi}} - {V}^{\pi,\mathcal{M}_{\phi}}\right|\right)p(\phi)\mathrm{d}\phi\quad \tag{By Lemma \ref{lem:beta-drop-bound}}\\
+&= \int_{\Phi_\beta}\left|{V}^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right|p(\phi)\mathrm{d}\phi+\int_{\Phi_\beta}\left|{V}_\alpha^{\pi, \mathcal{M}_{\phi}} - {V}^{\pi,\mathcal{M}_{\phi}}\right|p(\phi)\mathrm{d}\phi \label{proof:theo43p1}
+\end{align}
+For the first part of (\ref{proof:theo43p1}), let
+
+$$
+\epsilon_{\mathcal{M}}\triangleq\underset{\phi\in\Phi}{\mathbb{E}}\left[\underset{s,a\sim \pi,\mathcal{P}}{\mathbb{E}}\left[\left\|\mathcal{M}_\phi(s, a)-\mathcal{P}(s, a)\right\|\right]\right]
+$$
+denotes the general bias between any model $\mathcal{M}$ and environment transition $\mathcal{P}$, with Lemma \ref{lem:mb-bound}, we now get
+
+\begin{align}
+\int_{\Phi_\beta}\left|{V}^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right|p(\phi)\mathrm{d}\phi &\leq \frac{\gamma K}{1-\gamma}\int_{\Phi_\beta}\underset{s,a\sim\pi,\mathcal{P}}{\mathbb{E}}\left[\left\|\mathcal{M}_\phi(s, a)-\mathcal{P}(s, a)\right\|\right]p(\phi)\mathrm{d}\phi \tag{By Lemma \ref{lem:mb-bound}}\\
+&\leq \frac{\gamma K}{1-\gamma}\left|\epsilon_{\mathcal{M}}\right|\int_{\Phi_\beta}\left|p(\phi)\right|\mathrm{d}\phi\notag\\
+&=\frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\mathcal{M}} \label{proof:theo43p2}
+\end{align}
+For the second part of (\ref{proof:theo43p1}), by Lemma \ref{lem:beta-drop-bound}, we can show that
+
+\begin{align}
+\int_{\Phi_\beta}\left|{V}_\alpha^{\pi, \mathcal{M}_{\phi}} - {V}^{\pi,\mathcal{M}_{\phi}}\right|p(\phi)\mathrm{d}\phi&\leq \frac{\alpha(1+\alpha)}{(1-\alpha)(1-\gamma)}\mathrm{R}_m\int_{\Phi_\beta}p(\phi)\mathrm{d}\phi \tag{By Lemma \ref{lem:beta-drop-bound}}\\
+&=\frac{\alpha(1+\alpha)(1-\beta)}{(1-\alpha)(1-\gamma)}\mathrm{R}_m \label{proof:theo43p3}
+\end{align}
+Go back to equation (\ref{proof:theo43p1}), it follows that
+
+\begin{align*}
+\left|{V}_\alpha^{\pi, \mathcal{M}^\beta}-{V}^{\pi, \mathcal{P}}\right| &\leq \int_{\Phi_\beta}\left|{V}^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right|p(\phi)\mathrm{d}\phi+\int_{\Phi_\beta}\left|\epsilon_\alpha\right|p(\phi)\mathrm{d}\phi\\
+&\leq \frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\mathcal{M}}+\frac{\alpha(1+\alpha)(1-\beta)}{(1-\alpha)(1-\gamma)}\mathrm{R}_m \tag{By equation (\ref{proof:theo43p2}) and (\ref{proof:theo43p3})}\\
+&\triangleq D_{\alpha,\beta}(\mathcal{M})
+\end{align*}
+
+\end{proof}
+
+\subsection{Proof of Proposition \ref{prop:performance}}
+
+\begin{proof}
+
+With Theorem \ref{the:MBDP-bound}, i.e., $\left|{V}_\alpha^{\pi, \mathcal{M}^\beta}-{V}^{\pi, \mathcal{P}}\right|\leq D_{\alpha,\beta}(\mathcal{M})$, we have
+
+\begin{equation}\label{eq:prop44p1}
+{V}^{\pi_{k+1}, \mathcal{P}} \geq {V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta)
+\end{equation}
+Since the LHS of (\ref{eq:prop44p1}), i.e., ${V}^{\pi_{k+1}, \mathcal{P}}$ is bigger than the RHS of (\ref{eq:prop44p1}), i.e., ${V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta)$, we can change the inequality into an equation with the RHS plus a update residual $\epsilon_{k+1}$:
+
+\begin{equation}\label{proof:prop44p1}
+{V}^{\pi_{k+1}, \mathcal{P}} = {V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta) + \epsilon_{k+1}
+\end{equation}
+Where
+
+\begin{equation}
+\epsilon_{k+1} \triangleq {V}^{\pi_{k+1}, \mathcal{P}} - \left[{V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta} - D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta)\right]
+\end{equation}
+With the general pattern equation (\ref{eq:algo-equation}), we have
+
+\begin{equation}\label{proof:prop44p2}
+{V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta) \geq {V}^{\pi_k,\mathcal{P}}-D_{\alpha,\beta}(\mathcal{P})
+\end{equation}
+Since
+
+\begin{align*}
+\epsilon_{\mathcal{P}} &= \underset{\phi\in\Phi}{\mathbb{E}}\left[\underset{s,a\sim \pi,\mathcal{P}}{\mathbb{E}}\left[\left\|\mathcal{P}(s, a)-\mathcal{P}(s, a)\right\|\right]\right] \tag{By equation (\ref{def:delta-M})}\\
+&=\underset{\phi\in\Phi}{\mathbb{E}}\left[0\right] = 0
+\end{align*}
+We can show that
+
+\begin{align}
+D_{\alpha,\beta}(\mathcal{P}) &= \frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\mathcal{P}}+\frac{\alpha(1+\alpha)(1-\beta)}{(1-\alpha)(1-\gamma)}\mathrm{R}_m\notag\\
+&=0+\frac{\alpha(1+\alpha)(1-\beta)}{(1-\alpha)(1-\gamma)}\mathrm{R}_m\notag\\
+&=\epsilon_\alpha \label{proof:prop44p3}
+\end{align}
+With equation (\ref{proof:prop44p1}), (\ref{proof:prop44p2}) and (\ref{proof:prop44p3}), it follows that
+
+\begin{equation}
+{V}^{\pi_{k+1}, \mathcal{P}}\geq {V}^{\pi_{k}, \mathcal{P}} + \left[\epsilon_{k+1} - \epsilon_\alpha\right]
+\end{equation}
+
+Obviously, the update residual $\epsilon_{k+1}$ is much larger than $\epsilon_\alpha$ most of the time during the training period, implying that $\left[\epsilon_{k+1} - \epsilon_\alpha\right]\geq 0$ \textbf{almost surely}, i.e.,
+
+\begin{equation}
+{V}^{\pi_{k+1}, \mathcal{P}}\ \overset{\mathrm{a.s.}}{\geq}\ {V}^{\pi_{k}, \mathcal{P}}+0 
+\end{equation}
+Where ``$\mathrm{a.s.}$'' means ``almost surely''. Then we finally get
+
+\begin{equation}
+{V}^{\pi_{0}, \mathcal{P}}\ \overset{\mathrm{a.s.}}{\leq}\ \cdots\ \overset{\mathrm{a.s.}}{\leq}\ {V}^{\pi_{k}, \mathcal{P}}\ \overset{\mathrm{a.s.}}{\leq}\ {V}^{\pi_{k+1}, \mathcal{P}}\ \overset{\mathrm{a.s.}}{\leq}\ \cdots
+\end{equation}
+
+\end{proof}
