@@ -1,352 +1,113 @@
 % !TeX root = ../main.tex
 
-\chapter{基于模型强化学习样本筛选算法}
+\chapter{基于双层缓存的优先经验重放算法}
 
-\section{环境模型的集成学习与筛选}\label{sec:model-method}
+\section{强化学习中的经验回放}
 
-传统的不确定性环境建模和集成方法，虽然已经能够较好地模拟真实复杂环境并且捕捉到环境的不确定性 \cite{duan2007multi}，但并不能很好地控制模拟的精准程度，本课题在不确定性环境建模的基础上，结合传统集成学习的方法，设计了模型的集成和筛选机制。
+第一章研究现状介绍过经验重放（Experience Replay, ER）机制可以有效地提
+高数据样本的使用效率，还可以打破数据之间的相关性，避免深度神经网络训练 因数据的连续性导致的不稳定性。而为了更高效地利用有用的经验，人们改变了 随机经验重放的方法，提出了改进的优先经验重放。在优先经验重放方法中，通 常会为记忆库中的经验定义它们的优先级，改变每条经验被重放的概率，让那些 重要的、优秀的或对学习有利的经验更有可能被学习。而在各种优先经验重放算 法中，目前最流行的一种是由 DeepMind 团队在深度 Q 网络（Deep Q-Network， DQN）算法的基础上提出的优先经验重放（Prioritized Experience Replay, PER）算 法。
 
-具体地，在本课题中，首先训练学习一组环境模型集合$\{\mathcal{M}_{\phi_1},\mathcal{M}_{\phi_2},\ldots\}$，集合中每一个环境模型都是一个概率神经网络，其输出$\mu_{\phi_i},\sigma_{\phi_i}$构成高斯分布$\mathcal{N}(\mu_{\phi_i}(s,a),\sigma_{\phi_i}(s,a))$，环境模型对于下一时刻的状态预测则服从该分布，即
+% The Prioritized Experience Replay (PER) method has achieved good results in reinforcement learning, but it still has many limitations, including too much repetitive experience replay of outdated memories and poor coverage of the entire sample space. However, existing works have not paid much attention to this issue. We provide empirical insight that double layer replay buffer can help learn more important experiences which help improve the efficiency of reinforcement learning, while addressing the aforementioned limitations. In this work, to alleviate these limitations, we design a double layer experience replay mechanism. We add a second layer replay buffer based on the usual experience replay method, and extract samples from the experience pool in real time and add them to the second layer replay buffer. The samples in both of the two buffers are then mixed for policy optimization. We show that our method does provide near-ideal prioritized sampling distributions. We conduct experiments to demonstrate the effectiveness of our method.
 
-\begin{equation}
-    s^\prime \sim \mathcal{M}_{\phi_i}(s,a) = \mathcal{N}(\mu_{\phi_i}(s,a),\sigma_{\phi_i}(s,a))
-\end{equation}
+优先经验重放（PER）方法在强化学习中取得了很好的效果，但它仍有很多局限性，包括对过期记忆的重复经验重放太多，对整个样本空间的覆盖率不高。然而，现有的工作并没有对这个问题给予太多的关注。我们提供了经验性的见解，即双层重放缓冲区可以帮助学习更多的重要经验，这有助于提高强化学习的效率，同时解决上述的局限性。在这项工作中，为了缓解这些限制，我们设计了一个双层经验重放机制。我们在通常的经验重放方法的基础上增加了第二层重放缓冲区，并从经验池中实时提取样本，并将其加入第二层重放缓冲区。然后，这两个缓冲区中的样本被混合起来进行策略优化。我们表明，我们的方法确实提供了接近理想的优先采样分布。我们进行了实验来证明我们方法的有效性。
 
-在训练环境模型的同时，根据真实环境中采样得到的真实样本$(S,A)$，可以计算并记录模型的期望偏差：
-\begin{equation}
-    \mathrm{bias}(\phi_i) = \underset{S,A\sim \pi,\mathcal{P}}{\mathbb{E}}\|\mathcal{M}_{\phi_i}(S,A)-\mathcal{P}(S,A)\|
-\end{equation}
+\section{Introduction}
 
-其中$\|\cdot\|$是状态空间$\mathcal{S}$上的范数距离，该式的含义为所训练的环境模型$\mathcal{M}$与真实环境$\mathcal{P}$之间的范数意义距离。在上述模型集合的基础上，首先根据所计算的$\mathrm{bias}(\phi_i)$大小进行升序重排，并设定一个概率参数$\alpha\in(0,1]$，筛选出$\mathrm{bias}$在$\alpha$分位数以前的模型，保留得到筛选后的模型集合$\mathcal{M}^\alpha = \{\mathcal{M}_{\phi_1},\mathcal{M}_{\phi_2},\ldots,\mathcal{M}_{\phi_{N_\alpha}}\}$，其中$N_\alpha$是前面所描述的升序排序后的集合索引$\left\{1,2,\ldots,N_\alpha,\ldots\right\}$中的$\alpha$分位数。
+% In recent years, reinforcement learning (RL) has achieved remarkable results in a wide range of fields. However, reinforcement learning still faces challenges in practical application. The most obvious one is the sample efficiency problem. Although reinforcement learning has achieved excellent results in some fields, it often relies on huge training samples, which is not practical in the real world. Since there is no trial-and-error cost in a virtual simulation environment, algorithms are free to perform exploratory learning and thus learn strategies that can circumvent wrong decisions. However, in the real world, where much trial-and-error implies huge costs, it becomes a major challenge to learn decisions that can circumvent errors within limited training samples.
 
-需要注意的是，用于集成的不确定性模型集合并不是$\mathrm{bias}$越小越好，过小的$\mathrm{bias}$可能意味着过拟合的环境模型。
+近年来，强化学习（RL）在广泛的领域取得了显著的成果。然而，强化学习在实际应用中仍然面临挑战。其中最明显的是样本效率问题。尽管强化学习在一些领域取得了卓越的成果，但它往往依赖于巨大的训练样本，这在现实世界中并不实用。由于在虚拟的模拟环境中没有试错成本，算法可以自由地进行探索性学习，从而学习可以规避错误决策的策略。然而，在现实世界中，大量的试错意味着巨大的成本，如何在有限的训练样本中学习能够规避错误的决策成为一个重大挑战。
 
-参数$\alpha$的重要用处是可以动态地调整模型集合的整体精确性，它能与下一节将介绍的参数$\beta$协作调整强化学习的收益性能与鲁棒性。
+% Experience Replay (ER) ~\cite{lin1992self} has been a popular method for training large-scale reinforcement learning scenarioes ~\cite{degris2012continuous, vincent2018introrl}. In experience replay, the visited experiences are stored in a buffer, and at each time step, a batch of experiences are sampled to update the training parameters in the value function or policy. Experience shows that such an approach can be effective in stabilizing training and improving the sampling efficiency of deep RL algorithms. Several subsequent works have proposed different variants to improve it ~\cite{schaul2016prioritized,junhyuk2018selfil,horgan2018distributed,sun2020er}. The most relevant to our work is the prioritized experience replay (PER) ~\cite{schaul2016prioritized}. PER is a prioritized extraction method when sampling past trajectories from a experience pool, which attempts to improve the vanilla experience replay method by sampling those visited experiences in proportion to the absolute Temporal Difference (TD) errors. The reason for the improvement of PER over the traditional experience replay method is that randomly extracted experience ignores some important experiences. Just like the human brain, there exist memories that are more important and worthy of being learned. The effect of the PER method is to be able to learn the important experiences better, allowing the algorithm to converge faster and better.
 
-\section{环境模型的数据生成与筛选}\label{sec:rollout-method}
+Experience Replay（ER）\cite{lin1992self}一直是训练大规模强化学习场景的流行方法~cite{degris2012continuous, vincent2018introrl}。在经验回放中，访问过的经验被存储在一个缓冲区中，在每个时间步骤中，对一批经验进行采样，以更新价值函数或策略中的训练参数。经验表明，这种方法可以有效地稳定训练并提高深度RL算法的采样效率。随后的几项工作提出了不同的变体来改善它\cite{schaul2016prioritized,junhyuk2018selfil,horgan2018distributed,Sun2020er}。与我们的工作最相关的是优先经验回放（PER）\cite{schaul2016prioritized}。PER是一种从经验池中抽取过去轨迹时的优先提取方法，它试图通过按照绝对时差（TD）误差的比例抽取那些访问过的经验来改进香草式经验重放方法。PER比传统的经验重放方法有所改进的原因是，随机提取的经验忽略了一些重要的经验。就像人的大脑一样，存在着一些更重要的、值得学习的记忆。PER方法的效果是能够更好地学习重要的经验，使算法能够更快更好地收敛。
 
-传统的基于模型的强化学习算法在得到环境模型后，往往是以期望收益为目标进行最大化优化，但是期望意义下的最优并不意味着在任意环境下都能有优秀的表现，在实际部署策略的时候，当面临一些受干扰的信息不足的状态，策略容易做出一些不合理甚至危险的决策，导致强化学习在实际部署中不稳定。
+% PER makes replay more efficient than pure random sample replay by prioritizing experience. The ideal approach is to count the number of times the agent learns from transitions in the current state, but this metric is actually not easy to obtain. A more feasible way is to calculate the TD-error of each transition. If the TD-error is larger, it means that there is still a lot of room for improvement in our prediction accuracy, and the more this sample needs to be learned, that is, the higher the priority is.
 
-为了解决这一问题，本课题提出了一种主动关注较坏情况的样本筛选机制，适当延缓强化学习训练速度，提升决策策略的鲁棒性。
+PER通过优先考虑经验，使重放比纯随机样本重放更有效率。理想的方法是计算代理从当前状态的过渡中学习的次数，但这个指标实际上不容易获得。一个更可行的方法是计算每个过渡的TD-误差。如果TD-误差比较大，说明我们的预测精度还有很大的提升空间，这个样本需要学习的次数越多，也就是说，优先级越高。
 
-具体地，本课题基于上一节得到的$\mathcal{M}^{\alpha}$模型集合，在每一步都随机抽取一个模型$\mathcal{M}_{\phi_i}\in\mathcal{M}^\alpha$，然后使用该模型进行下一时刻的状态预测，即$s_{t+1}\sim \mathcal{M}_{\phi_t}(s_t,a_t), \phi_t\in\Phi_\alpha$，这样的一组状态和动作组成模拟样本$x=\left(s_{t+1},s_t,a_t\right)$，填入缓存池，然后相似地以一个概率参数$\beta\in(0,1]$进行筛选，从中挑选出反馈奖励值相对较低的样本，得到一个筛选后的$\beta$分位数样本集合$\mathcal{B}_\beta^{\pi,\mathcal{M}^\alpha}=\left\{x|x\in\mathcal{B}^{\pi,\mathcal{M}^\alpha},r(x)\leq r_\beta(\mathcal{B}^{\pi,\mathcal{M}^\alpha})\right\}$，其中$\mathcal{B}^{\pi,\mathcal{M}^\alpha}=\left\{x|x\triangleq\left(s_{t+1},s_t,a_t\right)\sim\pi,\mathcal{M}^\alpha\right\}$， $r_\beta(\mathcal{B}^{\pi,\mathcal{M}^\alpha})$ 是缓存池 $\mathcal{B}^{\pi,\mathcal{M}^\alpha}$的$\beta$分位数。
+% Despite the mentioned enhancements, the PER approach still has some problems: 1) In order to avoid the expensive cost of scanning the entire experience pool, only the TD-error value of the replayed transition will be updated, which will result in the transitions with small TD-error seen for the first time and will not be replayed for a long time; 2) TD-error is very sensitive to noise, and it is easy to add estimation errors due to noise; 3) High TD-error and frequent replays can cause overfitting due to loss of diversity.
 
-缓存池里的模拟样本构成的期望收益记为$\eta^{\pi,\mathcal{M}^\alpha}_\beta$。本课题已经证明，加入样本筛选机制后的模拟期望收益，与真实环境中期望收益的差异为一个受参数$\beta$控制的上界，如定理 \ref{the:beta-drop-bound} 所述。
+尽管有上述改进，PER方法仍然存在一些问题：1）为了避免扫描整个经验库的昂贵成本，只有重放的过渡的TD-误差值会被更新，这将导致第一次看到的TD-误差小的过渡不会被长时间重放；2）TD-误差对噪声非常敏感，很容易因噪声而增加估计误差；3）高TD-误差和频繁重放会因损失多样性而导致过拟合。
 
-\begin{theorem}\label{the:beta-drop-bound}
+% In fact, PER only performs priority assignment on the replay buffer composed of visited states. Compared with the entire state space, all training samples may only constitute a small subset, so PER is only in a local small space. After changing the sample distribution, the priority distribution in the global sense cannot be achieved, and the actual implementation is far from its concept.
 
-记$R_{m}$为奖励函数$r(s,a)$的上确界, 即 $R_{m}=\underset{s\in\mathcal{S},a\in\mathcal{A}}{\sup}r(s,a)$，在环境模型$\mathcal{M}_\phi$上使用样本筛选机制后，所得期望收益与真实环境中期望收益的差异值存在误差上界：
+事实上，PER只对由访问过的状态组成的重放缓冲区进行优先级分配。与整个状态空间相比，所有的训练样本可能只构成一个小的子集，所以PER只是在一个局部的小空间。在改变了样本分布后，全局意义上的优先权分配就无法实现，实际的实现与它的概念相差甚远。
 
-\begin{equation}
-    |\eta_\beta^{\pi, \mathcal{M}_{\phi}} - \eta^{\pi,\mathcal{M}_{\phi}}| \triangleq \varepsilon(\beta) \leq \frac{1-\beta}{1-\gamma}R_{m}
-\label{eq:eps-beta}
-\end{equation}
+% In this paper, we design a double layer experience replay mechanism to solve the limitations mentioned above. Like the usual experience replay approach, it first stores the observed samples in the
+% experience replay pool. But the difference is that  a second replay buffer is added afterwards for prioritizing the samples. The motivation for this is that we consider that humans do not fully prioritize all experiences when learning from experience, but only partially select important experiences to be learned first. We also set parameters to determine the size of the second layer buffer to dynamically adjust the degree of priority experience replay.
 
-\end{theorem}
+在本文中，我们设计了一种双层经验重放机制来解决上述的限制。与通常的经验重放方法一样，它首先将观察到的样本存储在
+经验重放池。但不同的是，之后增加了第二个重放缓冲区，以确定样本的优先次序。这样做的动机是，我们认为人类在从经验中学习时，不会完全优先考虑所有的经验，而只是部分地选择重要的经验来先学习。我们还设置了一些参数来决定第二层缓冲区的大小，以动态地调整优先经验重放的程度。
 
-定理\ref{the:beta-drop-bound}的重要意义是，即使筛选掉一批模拟样本，环境模型给出的模拟数据仍具备一定的可靠性，该可靠性由概率参数$\beta$控制。更进一步，将\ref{sec:model-method}中的模型筛选机制加入进来，本课题已经证明，在这两个筛选机制的共同作用下，模型给出的模拟数据依然是可靠并且可控的，如定理\ref{the:MBDP-bound}所述。
+\section{Related Work} \label{sec:Background}
 
-\begin{theorem}\label{the:MBDP-bound}
+% In this section, we firstly review basic concepts in RL. Then we briefly introduce the prioritized ER method, which will be examined in-depth in the next section. We conclude this section by discussing a classic model based reinforcement learning architecture called Dyna~\cite{sutton1991integrated} and its recent variants, which are most relevant to our work. 
 
-加入模型筛选机制和样本筛选机制后的模拟期望收益$\eta_\beta^{\pi, \mathcal{M}^\alpha}$与真实环境$\mathcal{P}$中的期望收益$\eta^{\pi, \mathcal{P}}$的差异值存在误差上界:
+在本节中，我们首先回顾RL的基本概念。然后，我们简要介绍了优先考虑的ER方法，这将在下一节深入研究。在这一节的最后，我们讨论了一个经典的基于模型的强化学习架构，即Dyna\cite{sutton1991integrated}及其最近的变体，这与我们的工作最为相关。
 
-\begin{equation}
-\left|\eta_\beta^{\pi, \mathcal{M}^\alpha}-\eta^{\pi, \mathcal{P}}\right|\leq D_{\alpha,\beta}(\mathcal{M})
-\end{equation}
-其中
-\begin{equation}\label{eq:MBDP-bound}
-D_{\alpha,\beta}(\mathcal{M})\triangleq\frac{\alpha\gamma K}{1-\gamma}\delta_{\mathcal{M}}+\frac{\alpha (1-\beta)}{1-\gamma}R_{m}
-\end{equation}
+% \begin{figure*}
+%     \centering
+%     \subfigure[Cliff Walking Environment]{
+%         \centering
+%         \includegraphics[width=0.45\textwidth]{imgs/cliff-env.png}
+%         \label{fig:cliff-env}
+%     }
+%     \hspace{0.5cm}
+%     \subfigure[The effect of rollout dropout]{
+%         \centering
+%         \includegraphics[width=0.45\textwidth]{imgs/cliffwalking.png}
+%         \label{fig:cliff-dis}
+%     }
+%     \caption{(a) The Cliff Walking Env consists of $4\times 12$ squares, where the bottom left corner is the start point, the bottom right corner is the goal point, the remaining squares in the bottom row are cliff, and the rest of the squares are normal states. When agent enters the cliff, it gets a reward of $-100$ and immediately ends the current episode, while in all other states, it gets a reward of $-1$; (b) The horizontal axis is the number of training steps, and the vertical axis indicates the Euclidean Distance of the agent from the cliff at the corresponding moment. Solid curves indicate the mean of all trials with different seeds. Shaded regions correspond to standard deviation among trials.}
+% \end{figure*}
 
-\end{theorem}
+% Reinforcement learning (RL) algorithms are commonly divided into two categories: model-free RL and model-based RL. Model-free RL methods learn policy directly from observed samples in the real environment, while model-based RL approaches build approximate predictive models of the environment and then derive policy from samples generated by the predictive model \cite{chen2015reinforcement,polydoros2017survey}. In recent years, reinforcement learning has achieved remarkable results in a wide range of areas, including simulated control problems \cite{schulman2015high,lillicrap2015continuous,levine2016end}, outperforming human performances on Go and games \cite{mnih2015human,silver2016mastering}. However, these results are mostly achieved by model-free reinforcement learning algorithms that rely on a large number of real-world environmental samples, and therefore these algorithms are often limited to a simulated environment when deploying applications. In contrast, model-based methods have shown promising ability in reducing the sample complexity \cite{deisenroth2013survey,berkenkamp2017safe}. Previous works \cite{levine2016end,Chua2018DeepModels,janner2019trust} have empirically shown significant improvements in sample efficiency.
 
-定理\ref{the:MBDP-bound}的重要意义是，在加入模型筛选机制和样本筛选机制后，模型给出的模拟数据与传统的模拟方式相比只存在一个可控的误差上界，对强化学习的训练带来的误差影响并不大，在该可控范围内，如前文对筛选机制的具体描述，本课题能够得到鲁棒性更好的决策策略。
+强化学习（RL）算法通常分为两类：无模型RL和基于模型RL。无模型RL方法直接从真实环境中观察到的样本中学习策略，而基于模型的RL方法则是建立环境的近似预测模型，然后从预测模型产生的样本中得出策略 （\cite{chen2015reinforcement,polydoros2017survey}。近年来，强化学习在很多领域取得了令人瞩目的成果，包括模拟控制问题 （\cite{schulman2015high,lillicrap2015continuous,levine2016end}，超越人类在围棋和游戏上的表现 （\cite{mnih2015human,Silver2016mastering}。然而，这些结果大多是由无模型的强化学习算法实现的，这些算法依赖于大量的真实世界环境样本，因此这些算法在部署应用时往往被限制在模拟环境中。相比之下，基于模型的方法在降低样本复杂度方面表现出很好的能力 （\cite{deisenroth2013survey,berkenkamp2017safe}。以前的工作\cite{levine2016end,Chua2018DeepModels,janner2019trust}在经验上显示了样本效率的显著提高。
 
-\section{MBDP算法}
 
-\begin{figure}[tbh]
-\centering
-\includegraphics[width=\textwidth]{figures/mbdp.pdf}
-\caption{算法整体框架结构。}
-\label{fig:algo-structure}
-\end{figure}
+% Model-based reinforcement learning is a powerful tool to improve sample efficiency by interacting with the simulated environment. DeepPILCO method \cite{gal2016improving} enables modeling more complex environments by introducing Bayesian Neural Network (BNN) with high-capacity function approximators for neural networks \cite{blundell2015weight,mackay1995bayesian}. Model ensemble method \cite{kurutach2018model} is further introduced to comprehensively capture the uncertainty in the environment \cite{malik2019calibrated}. In this paper, we adopt the model ensemble approach and combine it with our designed dropout mechanism to achieve controllability of performance and robustness. However, all of these model-based methods suffer from model bias, resulting in bad decision policies. STEVE method \cite{buckman2018sample} tries to solve this problem by dynamically interpolating the length of rollouts for better performance. MBPO method \cite{janner2019trust} starts from real states and only performs short length rollouts in planning, which can effectively avoid the accumulated errors. With a model, an agent has more flexibility to sample hypothetical experiences. We consider a one-step model which maps a state-action pair to its possible next state and reward: $M:sxa$. We build on the Dyna formalism~\cite{sutton1991integrated} for MBRL, and more specifically, the proposed Dyna Style MBRL as shown in Algorithm~\ref{algo:mbrl}. Dyna Style MBRL is a very general model based reinforcement learning framework on which to build algorithms that can be easily extended to a variety of specific improvement methods.
 
-由于在强化学习中模拟误差越小，算法的收敛性能则越好，观察公式(\ref{eq:MBDP-bound})中的误差上界$D_{\alpha,\beta}(\mathcal{M})$可知，强化学习的算法性能与参数$\alpha$成反比，与参数$\beta$成正比，又根据\ref{sec:model-method}节和\ref{sec:rollout-method}节的介绍可知，策略的鲁棒性显然与参数$\alpha$成正比，与参数$\beta$成反比，恰好与前面的作用效果相反。
+基于模型的强化学习是一个强大的工具，通过与模拟环境的互动来提高采样效率。DeepPILCO方法\cite{gal2016improving}通过引入贝叶斯神经网络（BNN）与神经网络的高容量函数近似器，实现了对更复杂环境的建模\cite{blundell2015weight,mackay1995bayesian}。进一步引入了模型集合方法 \cite{kurutach2018model}来全面捕捉环境的不确定性 \cite{malik2019calibrated}。在本文中，我们采用了模型集合方法，并将其与我们设计的辍学机制相结合，以实现性能的可控性和鲁棒性。然而，所有这些基于模型的方法都存在着模型偏差，导致决策策略不好。STEVE方法\cite{buckman2018sample}试图通过动态插值退出的长度来解决这个问题，以获得更好的性能。MBPO method \cite{janner2019trust}从真实状态出发，在规划中只执行短长度的滚动，这样可以有效避免累积的错误。有了模型，代理人就有了更大的灵活性，可以对假设的经验进行采样。我们考虑一个单步模型，它将一个状态-行动对映射到其可能的下一个状态和奖励：$M:sxa$。我们建立在Dyna形式主义\cite{sutton1991integrated}的MBRL上，更具体地说，就是算法\ref{algo:mbrl}中提出的Dyna风格的MBRL。Dyna Style MBRL是一个非常通用的基于模型的强化学习框架，在此基础上建立的算法可以很容易地扩展到各种具体的改进方法。
 
-因此，本课题可以动态性地调整参数$\alpha,\beta$来取得算法性能和最终策略鲁棒性之间的平衡，从而得到不同属性的强化学习决策策略：
+% Experience Replay is critical when using neural networks to estimate $Q_\theta$, as used in DQN~\cite{mnih2015human}, both to stabilize and speed up learning. ER method uniformly samples a mini-batch of experiences from those visited ones in the form of $(s_t, a_t, s_{t+1}, r_{t+1})$ to update neural network parameters. Prioritized ER~\cite{schaul2016prioritized} improves upon it by prioritized sampling experiences, where the probability of sampling a certain experience is proportional to its TD error magnitude, i.e., $p(s_t, a_t, s_{t+1}, r_{t+1})\propto |\delta_{t}|$. However, the underlying theoretical mechanism behind this method is still not well understood.
 
-\begin{itemize}
-    \item \textbf{平衡的决策策略}：将参数$\alpha$和$\beta$调整为适中大小的概率值，适用于一般的普通环境；
-    \item \textbf{收益性能较高的决策策略}：将参数$\alpha$调整为较小的概率值，$\beta$调整为较大的概率值，适用于相对稳定的环境；
-    \item \textbf{鲁棒性较好的决策策略}：将参数$\alpha$调整为较大的概率值，$\beta$调整为较小的概率值，适用于干扰较大的环境。
-\end{itemize}
+当使用神经网络来估计$Q_\theta$时，经验重放是至关重要的，就像在DQN\cite{mnih2015human}中使用的那样，既能稳定又能加快学习速度。ER方法以$(s_t, a_t, s_{t+1}, r_{t+1})$的形式从那些访问过的经验中均匀地抽出一个小批，以更新神经网络参数。Prioritized ER\cite{schaul2016prioritized}通过优先抽样经验来改进它，其中抽样某个经验的概率与它的TD误差大小成正比，即$p(s_t, a_t, s_{t+1}, r_{t+1})propto |\delta_{t}|$。然而，这种方法背后的基本理论机制仍然没有得到很好的理解。
 
-基于\ref{sec:model-method}节和\ref{sec:rollout-method}节的提出的改进方案思路，将其整合进传统的基于模型的强化学习算法框架，得到改进的算法，算法整体框架如图\ref{fig:algo-structure}所示。
+\section{DPER Method}
 
-首先通过与环境交互产生样本，用于训练概率模型并集成模拟，两个筛选模块作为主要改进加入到模拟数据生成的环节中，最终提供给策略优化公式对策略$\pi(a|s)$进行优化，并进行下一轮迭代。
+\subsection{A Motivating Example}
 
-\section{MBDP算法的理论分析}
+% In order to understand the potential benefits of double layer experience replay, we introduce a Cliff Walking environment (described in Figure \ref{fig:cliff-env}). Obviously, there is an optimal path, as shown by the red line in the figure. However, this optimal path is also the most dangerous one. If the algorithm is not efficient in early stage, it may accidentally enter the cliff from the optimal path at any time, resulting in a large penalty, thus affecting the convergence of the algorithm, so the algorithm with better robustness can perform better in the Cliff Walking environment.
 
-In Appendix A, we will provide proofs for Theorem \ref{the:robustness}, Lemma \ref{lem:beta-drop-bound}, Theorem \ref{the:MBDP-bound} ,and Proposition \ref{prop:performance}. Note that the numbering and citations in the appendices are referenced from the main manuscript.
+% We use the Policy Gradient (PG) algorithm and design a variant that would dropout some rollout samples while conducting comparative experiments in the Cliff Walking environment. As shown in Figure \ref{fig:cliff-dis}, the agent in the original PG algorithm tends to explore from a safe path away from the cliff until it gets sufficient information to slowly approach the optimal path. In contrast, the PG algorithm with double layer experience replay can learn more quickly and can more confidently approach the danger region earlier and thus converge to the optimal path better. The statistical results show that the policies trained with the double layer experience replay method fall into the cliff region less often and exhibit better robustness during evaluation.
 
-\subsection{Proof of Theorem \ref{the:robustness}}
+% Table \ref{tab:cliff-stats} shows the evaluation statistical results of the policy gradient using single or double layer replay buffer in the CliffWalking environment. The metrics are the probability of falling into the cliff area, and the average return. Each run of the experiment consists of 3 sets of seeds, and each experiment takes 2000 steps. It can be seen that when the double layer replay buffer is used, the algorithm performs better than the case of single layer replay buffer. This motivation experiment gives us an inspiration to design our algorithm.
 
-\begin{proof}
-Recall the definition of $\mathrm{CVaR}$ (\ref{eq:def-cvar}) and $V_\alpha^{\pi,\mathcal{M}}$
-(\ref{def:eta-beta}), we need to take the negative value of rewards to represent the loss in the sense of CVaR. Then we have that,
+为了理解双层经验重放的潜在好处，我们引入了一个悬崖行走环境（如图\ref{fig:cliff-env}所述）。很明显，有一条最优路径，如图中的红线所示。然而，这条最优路径也是最危险的路径。如果算法在早期阶段效率不高，随时可能不小心从最优路径进入悬崖，造成较大的惩罚，从而影响算法的收敛性，所以具有较好鲁棒性的算法在悬崖行走环境中可以表现得更好。
 
-\begin{align*}
-\mathrm{CVaR}_\alpha(-V^{\pi,\mathcal{M}}) &= \mathbb{E}\left[-V^{\pi,\mathcal{M}}\mid -V^{\pi,\mathcal{M}} \geq \mathrm{VaR}_\alpha(-V^{\pi,\mathcal{M}})\right]\\
-&=\mathbb{E}\left[-{\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right]\mid -{\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right] \geq \mathrm{VaR}_\alpha(-V^{\pi,\mathcal{M}})\right]\\
-&=-\mathbb{E}\left[{\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right]\mid {\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right] \leq -\mathrm{VaR}_\alpha(-V^{\pi,\mathcal{M}})\right]\\
-\end{align*}
+我们使用政策梯度（PG）算法，并设计了一个变体，在悬崖行走环境中进行对比实验时，会放弃一些滚动样本。如图所示，原始PG算法中的代理人倾向于从远离悬崖的安全路径进行探索，直到它获得足够的信息来慢慢接近最优路径。相比之下，具有双层经验重放的PG算法能够更快地学习，并且能够更有把握地提前接近危险区域，从而更好地收敛到最优路径。统计结果表明，用双层经验重放法训练的策略落入悬崖区的次数较少，在评估过程中表现出更好的稳健性。
 
-Obviously, the condition of ${\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right] \leq -\mathrm{VaR}_\alpha(-V^{\pi,\mathcal{M}})$ in the above equation exactly meets our definition of $\mathcal{B}_\alpha^{\pi,\mathcal{M}}$, that is, eqaution (\ref{def:batch-alpha-beta}). Then we can prove the first part of Theorem \ref{the:robustness}
+表\ref{tab:cliff-stats}显示了在CliffWalking环境下使用单层或双层重放缓冲区的策略梯度的评估统计结果。这些指标是落入悬崖区的概率，以及平均回报率。每次实验的运行由3组种子组成，每次实验需要2000步。可以看出，当使用双层重放缓冲器时，该算法的表现比单层重放缓冲器的情况要好。这一激励性实验给了我们设计算法的灵感。
 
-\begin{equation}
--\mathrm{CVaR}_\alpha(-V^{\pi,\mathcal{M}}) = \mathbb{E}\left[{\sum}_{\mathcal{B}_\alpha^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right]\right] = V_\alpha^{\pi,\mathcal{M}}
-\end{equation}
+\subsection{Double Layer Experience Replay}
 
-Considering $\mathbb{E}_{\hat{\mathcal{P}}}[-V^{\pi,\mathcal{M}}]$, recall the definition of $\hat{\mathcal{P}}$, we have that
+% In this subsection, we will introduce the Double Layer Experience Replay method and how it can help improve learning efficiency of Reinforcement Learning.
 
-\begin{align*}
-    \mathbb{E}_{\hat{\mathcal{P}}}[V^{\pi,\mathcal{M}}] &= -\mathbb{E}_{\hat{\mathcal{P}}}[-V^{\pi,\mathcal{M}}]\\
-    &= -\sum_{(s_0,\ldots,s_T)\in\mathcal{S}^{T+1}}\mathcal{P}_0(s_0)\delta_0(s_0)\prod_{t=1}^{T}\mathcal{P}_t(s_t\mid s_{t-1})\delta_t(s_t\mid s_{t-1})\cdot (-V^{\pi,\mathcal{M}})\\
-    &= \sum_{(s_0,\ldots,s_T)\in\mathcal{S}^{T+1}}\mathcal{P}(s_0,\ldots,s_T)\delta_0(s_0)\prod_{t=1}^{T}\delta_t(x_t\mid x_{t-1})\cdot V^{\pi,\mathcal{M}}\\
-    &\triangleq \sum_{(s_0,\ldots,s_T)\in\mathcal{S}^{T+1}}\mathcal{P}(s_0,\ldots,s_T)\delta(s_0,\ldots,s_T)\cdot V^{\pi,\mathcal{M}}
-\end{align*}
+% We firstly train a model based on the environment data, i.e., $\mathcal{D}_{\text{env}}$. After obtaining the model, we first generate a certain amount of samples to fill in the multi-layer batch, first take out hypothetical samples with large deviations for learning, and then directly give priority to infer and learn in the direction that may have large deviations to make up for the shortcomings of the agent policy, followed by regular learning. With the idea of Dyna-style RL, we continually transmit the collected real samples to the model for further optimization in the policy optimization cycle, which enables the model to provide simulation samples for the framework more efficiently and accurately. We also use the model ensemble approach in order to capture the uncertainty in environment.
 
-Since $\delta$ is the random perturbation to the environment as we defined, it's intuitive that
+% The algorithmic framework maintains two buffers: the first layer experience replay buffer which stores general transition samples (the form of $(s_t, a_t, s_{t+1}, r_{t+1})$) and the second layer experience replay buffer which stores the prioritized transition samples. At each time step $t$, a real experience $(s_t, a_t, s_{t+1}, r_{t+1})$ is collected and stored into the first layer experience replay buffer. Then the priority process starts to prioritize the samples and store them into the second layer experience replay buffer. A hypothetical experience is obtained by first selecting a state $s$ from the experience replay buffer (as shown in Figure \ref{fig:algo-structure}), then selecting an action $a$ according to the current policy, and then querying the model to get the next state $s'$ and reward $r$ to form an experience $(s, a, s', r)$. These hypothetical transitions are combined with real experiences into a single replay buffer to update the training parameters. The updates performed before taking the next action, are called \emph{planning updates}~\cite{sutton2018intro}, as they improve the action-value estimates---and so the policy---using a model. The choice of pairing states with on-policy actions to form hypothetical experiences has been reported to be beneficial~\cite{gu2016continuous,yangchen2018rem,janner2019trustmodel}.
 
-\begin{equation}\label{eq:delta-exp}
-    \mathbb{E}\left[\delta(s_0,\ldots,s_T)\right] = \sum_{(s_0,\ldots,s_T)\in\mathcal{S}^{T+1}}\mathcal{P}(s_0,\ldots,s_T)\delta(s_0,\ldots,s_T) = 1
-\end{equation}
+在本小节中，我们将介绍双层经验重放法以及它如何帮助提高强化学习的学习效率。
 
-Recall the definition of $\Delta_\alpha$ in (\ref{eq:supp-perturbation}), we can prove the second part of Theorem \ref{the:robustness}
+我们首先根据环境数据训练一个模型，即$\mathcal{D}_{text{env}}$。得到模型后，我们先生成一定量的样本填充到多层批处理中，先取出偏差较大的假设样本进行学习，然后直接优先推断并学习可能存在较大偏差的方向，以弥补代理策略的不足，接着进行常规学习。利用Dyna式RL的思想，我们在策略优化周期中不断将收集到的真实样本传输给模型进行进一步优化，这使得模型能够更高效、更准确地为框架提供模拟样本。我们还使用了模型集合的方法，以捕捉环境中的不确定性。
 
-\begin{align}
-    \sup\limits_{\Delta_\alpha}\mathbb{E}_{\hat{\mathcal{P}}}[V^{\pi,\mathcal{M}}] &= \sup\limits_{\delta(s_0,\ldots,s_T)\leq\frac{1}{\alpha}}\sum_{(s_0,\ldots,s_T)\in\mathcal{S}^{T+1}}\mathcal{P}(s_0,\ldots,s_T)\delta(s_0,\ldots,s_T)\cdot V^{\pi,\mathcal{M}}\notag\\
-    &=-\mathrm{CVaR}_\alpha(-V^{\pi,\mathcal{M}})\label{proof:cvar-eq}
-\end{align}
+该算法框架保持两个缓冲区：第一层经验重放缓冲区，存储一般的过渡样本（形式为$(s_t, a_t, s_{t+1}, r_{t+1})$）；第二层经验重放缓冲区，存储优先级的过渡样本。在每个时间步长$t$，一个真实的经验$(s_t, a_t, s_{t+1}, r_{t+1})$被收集并存储到第一层经验回放缓冲区。然后，优先级过程开始对样本进行优先排序，并将其存储到第二层经验重放缓冲区。一个假设的经验是通过首先从经验回放缓冲器中选择一个状态$s$（如图\ref{fig:algo-structure}所示），然后根据当前策略选择一个行动$a$，然后查询模型以获得下一个状态$s'$和奖励$r$，形成一个经验$(s, a, s', r)$。这些假想的过渡与真实的经验结合到一个重放缓冲区，以更新训练参数。在采取下一个行动之前进行的更新，被称为\emph{规划更新}~\cite{sutton2018intro}，因为它们改善了行动价值的估计---因此也改善了政策---使用模型。据报道，选择将状态与政策上的行动配对，形成假设的经验是有益的\cite{gu2016continuous,yangchen2018rem,janner2019trustmodel}。
 
-The last equation (\ref{proof:cvar-eq}) is obtained by equation (\ref{eq:delta-exp}) and the Representation Theorem [22] for CVaR.
+% Specifically, the scale is controlled by the parameter $\alpha$: the first $\alpha$ scale samples are planned for prioritized experience replay, and the latter $(1-\alpha)$ scale samples are used for regular learning. Then we fill the prioritized samples into the second layer buffer, and then correct the sample distribution through importance sampling in the buffer. Finally, we combine the double layer experience replay for policy update.
 
-\end{proof}
+% The overview of the algorithm architecture is shown in Figure \ref{fig:algo-structure} and the corresponding pseudo-code is demonstrated in Algorithm \ref{algo:our-method}. As we can see, when interacting with the environment, we collect samples into environment replay buffer $\mathcal{D}_{\mathrm{env}}$, used for training the simulator model of the environment. Then we implement the double layer ER procedure and perform rollouts on the model. The sampled data from the model is filled into a temporary buffer $\mathcal{D}_\mathrm{model}$. Finally, we use samples from $\mathcal{D}_\mathrm{model}$ to optimize the policy $\pi(a|s)$.
 
-\subsection{Proof of Lemma \ref{lem:beta-drop-bound}}
+具体来说，规模由参数$alpha$控制：第一个$alpha$规模的样本计划用于优先的经验重放，而后一个$(1-alpha)$规模的样本则用于常规学习。然后，我们将优先级的样本填入第二层缓冲区，再通过缓冲区内的重要性抽样来修正样本分布。最后，我们结合双层经验回放进行策略更新。
 
-To prove Lemma \ref{lem:beta-drop-bound}, we need to introduce two useful lemmas.
-
-\begin{lemma}\label{lem:proof-for-lem41}
-
-Define
-
-\begin{equation}\label{def:G-sa}
-G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E}}{{V}^{\pi,\mathcal{M}}}(\hat{s}') - \underset{s'\sim\mathcal{P}(\cdot|s,a)}{\mathbb{E}}{{V}^{\pi,\mathcal{M}}}(s')
-\end{equation}
-For any policy $\pi$ and dynamical models $\mathcal{M},\mathcal{M}'$, we have that
-
-\begin{equation}
-{V}^{\pi,\mathcal{M}'} - {V}^{\pi,\mathcal{M}} = \frac{\gamma}{1-\gamma}\underset{S,A\sim\pi,\mathcal{M}}{\mathbb{E}}\left[G^{\pi,\mathcal{M}'}(S,A)\right]
-\end{equation}
-
-\end{lemma}
-
-Lemma \ref{lem:proof-for-lem41} is a directly cited theorem in existing work (Lemma 4.3 in [31]), we make some modifications to fit our subsequent conclusions. With the above lemma, we first propose Lemma \ref{lem:mb-bound}.
-
-\begin{lemma}\label{lem:mb-bound}
-Suppose the expected return for model-based methods ${V}^{\pi,\mathcal{M}}$ is Lipschitz continuous on the state space $\mathcal{S}$, $K$ is the Lipschitz constant, $\mathcal{P}$ is the transition distribution of environment, then
-\begin{equation}
-\left|{V}^{\pi, \mathcal{M}}-{V}^{\pi, \mathcal{P}}\right| \leq\frac{\gamma}{1-\gamma}K\cdot\mathrm{bias}
-\end{equation}
-where
-\begin{equation}
-\mathrm{bias} \triangleq \underset{s,a\sim \pi,\mathcal{P}}{\mathbb{E}}\left\|\mathcal{M}(s, a)-\mathcal{P}(s, a)\right\|
-\end{equation}
-
-\label{theo:mb-bound}
-\end{lemma}
-
-In Lemma \ref{lem:mb-bound}, we make the assumption that the expected return ${V}^{\pi,\mathcal{M}}(s)$ on the estimated model $\mathcal{M}$ is \textit{Lipschitz continuous} w.r.t any norm $\|\cdot\|$, i.e.
-
-\begin{equation}\label{assum:lip}
-    \left|{V}^{\pi,\mathcal{M}}(s)-{V}^{\pi,\mathcal{M}}(s^{\prime})\right| \leq K\left\|s-s^{\prime}\right\|, \forall s, s^{\prime} \in \mathcal{S}
-\end{equation}
-where $K\in \mathbb{R}^+$ is a \textit{Lipschitz constant}. This assumption means that the closer states should give the closer value estimation, which should hold in most scenarios.
-
-\begin{proof}
-
-By definition of $G^{\pi,\mathcal{M}}(s,a)$ in (\ref{def:G-sa}) and Assumption (\ref{assum:lip}), i.e., ${V}^{\pi,\mathcal{M}}(s)$ is \textit{Lipschitz continuous}, we have that
-
-\begin{equation}\label{eq:G-leq}
-|G^{\pi,\mathcal{M}}(s,a)|\leq K\|\mathcal{M}(s,a)-\mathcal{P}(s,a)\|
-\end{equation}
-Then, we can show that
-
-\begin{align*}
-\left|{V}^{\pi, \mathcal{M}}-{V}^{\pi, \mathcal{P}}\right| &= \frac{\gamma}{1-\gamma}\left|\underset{s,a\sim\pi,\mathcal{P}}{\mathbb{E}}\left[G^{\pi,\mathcal{M}}(s,a)\right]\right| \tag{By Lemma \ref{lem:proof-for-lem41}}\\
-&\leq \frac{\gamma}{1-\gamma}\underset{s,a\sim\pi,\mathcal{P}}{\mathbb{E}}\left[\left|G^{\pi,\mathcal{M}}(s,a)\right|\right] \tag{By Triangle Inequality}\\
-&\leq \frac{\gamma}{1-\gamma}\underset{s,a\sim\pi,\mathcal{P}}{\mathbb{E}}K\|\mathcal{M}(s,a)-\mathcal{P}(s,a)\| \tag{By equation (\ref{eq:G-leq})}\\
-&= \frac{\gamma}{1-\gamma}K\cdot\underset{s,a\sim\pi,\mathcal{P}}{\mathbb{E}}\|\mathcal{M}(s,a)-\mathcal{P}(s,a)\|\\
-&\triangleq \frac{\gamma}{1-\gamma}K\cdot\mathrm{bias}
-\end{align*}
-
-\end{proof}
-
-\newpage
-
-Now we prove Lemma \ref{lem:beta-drop-bound}.
-
-\begin{proof}
-
-For two disjoint sets $A$ and $B$, i.e., $A\cap B=\varnothing$, there are the following property
-
-\begin{equation}
-    \mathbb{E}_{A\cup B}[X] = \mathbb{E}_A[X]\mathrm{P}(A)+\mathbb{E}_B[X]\mathrm{P}(B)
-\end{equation}
-
-By this property,
-
-\begin{align*}
-    &\mathbb{E}\left[{\sum}_{s_0\in\mathcal{S},\{a_0,s_1,\ldots\} \sim\pi,\mathcal{M}_\phi}\left[\gamma^t r(s_t,a_t)\right]\right] \\
-    &= (1-\alpha)\cdot \mathbb{E}\left[{\sum}_{\{s_0,a_0,\ldots\} \sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right] + \alpha\cdot\mathbb{E}\left[{\sum}_{\{s_0,a_0,\ldots\} \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]
-\end{align*}
-
-Recall the definition (\ref{def:eta-s}), (\ref{def:eta-expectation}) and (\ref{def:eta-beta}), we have that
-
-\begin{align}
-{V}^{\pi,\mathcal{M}_\phi}_\alpha&=\mathbb{E}\left[{\sum}_{\{s_0,a_0,\ldots\} \sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\notag\\
-&=\frac{1}{1-\alpha}\mathbb{E}\left[{\sum}_{s_0\in\mathcal{S},\{a_0,s_1,\ldots\} \sim\pi,\mathcal{M}_\phi}\left[\gamma^t r(s_t,a_t)\right]\right]-\frac{\alpha}{1-\alpha}\mathbb{E}\left[{\sum}_{\{s_0,a_0,\ldots\} \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\notag\\
-&=\frac{1}{1-\alpha}\underset{s\in{\mathcal{S}}}{\mathbb{E}}\left[{V}^{\pi,\mathcal{M}_\phi}(s)\right]-\frac{\alpha}{1-\alpha}\mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\notag\\
-&=\frac{1}{1-\alpha}{V}^{\pi,\mathcal{M}_\phi}-\frac{\alpha}{1-\alpha}\mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\label{proof:lem42p1}
-\end{align}
-
-% Where $\tau\triangleq\{s_0,a_0,\ldots\}$; $\mathbb{E}\Big[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\Big]$ is a term related to variable $\pi,\mathcal{M}_\phi$ and $\alpha$ which can be denoted by $\epsilon^{\pi,\mathcal{M}_\phi}_\alpha$. For simplicity, we omit it as $\epsilon_\alpha$. Recall the definition (\ref{def:batch-alpha-beta}) and  $\mathrm{R}_{m}=\underset{s\in\mathcal{S},a\in\mathcal{A}}{\sup}r(s,a)$, we have
-
-Where $\tau\triangleq\{s_0,a_0,\ldots\}$. Recall the definition (\ref{def:batch-alpha-beta}) and  $\mathrm{R}_{m}=\underset{s\in\mathcal{S},a\in\mathcal{A}}{\sup}r(s,a)$, we have
-
-\begin{align*}
-\mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right] &\leq\int_{\tau\not\sim{\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}}\left[\sum_{t=0}^\infty\gamma^t \mathrm{R}_m\right]p(\tau)\mathrm{d}\tau\\
-&=\left[\sum_{t=0}^\infty\gamma^t\right]\mathrm{R}_m\int_{\tau\not\sim{\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}}p(\tau)\mathrm{d}\tau\\
-&= \frac{1}{1-\gamma}\mathrm{R}_m \int_{\tau\not\sim{\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}}p(\tau)\mathrm{d}\tau\\
-&=\frac{\alpha}{1-\gamma}\mathrm{R}_m \tag{By definition of $\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}$}\\
-\end{align*}
-
-Similarly,
-
-\begin{align*}
-V^{\pi,\mathcal{M}_\phi} = \mathbb{E}\left[{\sum}_{\tau \sim\mathcal{B}^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right] &\leq\int_{\tau \sim\mathcal{B}^{\pi,\mathcal{M}_\phi}}\left[\sum_{t=0}^\infty\gamma^t \mathrm{R}_m\right]p(\tau)\mathrm{d}\tau\\
-&=\left[\sum_{t=0}^\infty\gamma^t\right]\mathrm{R}_m\int_{\tau \sim\mathcal{B}^{\pi,\mathcal{M}_\phi}}p(\tau)\mathrm{d}\tau\\
-&= \frac{1}{1-\gamma}\mathrm{R}_m \int_{\tau \sim\mathcal{B}^{\pi,\mathcal{M}_\phi}}p(\tau)\mathrm{d}\tau\\
-&=\frac{1}{1-\gamma}\mathrm{R}_m\\
-\end{align*}
-
-Based on the above two inequalities and equation (\ref{proof:lem42p1}), we have that
-
-\begin{align}
-|{V}_\alpha^{\pi, \mathcal{M}_{\phi}} - {V}^{\pi,\mathcal{M}_{\phi}}| &=  \left|\frac{\alpha}{1-\alpha}V^{\pi,\mathcal{M}_\phi}-\frac{\alpha}{1-\alpha}\mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\right| \notag\\
-&\leq\frac{\alpha}{1-\alpha}\left(\left|V^{\pi,\mathcal{M}_\phi}\right|+\left|\mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\right|\right)\notag\\
-&\leq \frac{\alpha}{1-\alpha}\left(\frac{1}{1-\gamma}\mathrm{R}_m+\frac{\alpha}{1-\gamma}\mathrm{R}_m\right) \notag\\
-&=\frac{\alpha(1+\alpha)}{(1-\alpha)(1-\gamma)}\mathrm{R_{m}} \label{eq:lem42}
-\end{align}
-
-\end{proof}
-
-
-
-\subsection{Proof of Theorem \ref{the:MBDP-bound}}
-
-\begin{proof}
-
-With Lemma \ref{lem:mb-bound} and Lemma \ref{lem:beta-drop-bound}, we can show that
-
-\begin{align}
-\left|{V}_\alpha^{\pi, \mathcal{M}^\beta}-{V}^{\pi, \mathcal{P}}\right|&=\left|\int_{\Phi_\beta}{V}_\alpha^{\pi, \mathcal{M}_{\phi}}p(\phi)\mathrm{d}\phi-{V}^{\pi, \mathcal{P}}\right| \notag\\
-&=\left|\int_{\Phi_\beta}\left({V}_\alpha^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right)p(\phi)\mathrm{d}\phi\right| \notag\\
-&\leq\int_{\Phi_\beta}\left|{V}_\alpha^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right|p(\phi)\mathrm{d}\phi \tag{By Triangle Inequality}\\
-&\leq\int_{\Phi_\beta}\left(\left|{V}^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right|+\left|{V}_\alpha^{\pi, \mathcal{M}_{\phi}} - {V}^{\pi,\mathcal{M}_{\phi}}\right|\right)p(\phi)\mathrm{d}\phi\quad \tag{By Lemma \ref{lem:beta-drop-bound}}\\
-&= \int_{\Phi_\beta}\left|{V}^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right|p(\phi)\mathrm{d}\phi+\int_{\Phi_\beta}\left|{V}_\alpha^{\pi, \mathcal{M}_{\phi}} - {V}^{\pi,\mathcal{M}_{\phi}}\right|p(\phi)\mathrm{d}\phi \label{proof:theo43p1}
-\end{align}
-For the first part of (\ref{proof:theo43p1}), let
-
-$$
-\epsilon_{\mathcal{M}}\triangleq\underset{\phi\in\Phi}{\mathbb{E}}\left[\underset{s,a\sim \pi,\mathcal{P}}{\mathbb{E}}\left[\left\|\mathcal{M}_\phi(s, a)-\mathcal{P}(s, a)\right\|\right]\right]
-$$
-denotes the general bias between any model $\mathcal{M}$ and environment transition $\mathcal{P}$, with Lemma \ref{lem:mb-bound}, we now get
-
-\begin{align}
-\int_{\Phi_\beta}\left|{V}^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right|p(\phi)\mathrm{d}\phi &\leq \frac{\gamma K}{1-\gamma}\int_{\Phi_\beta}\underset{s,a\sim\pi,\mathcal{P}}{\mathbb{E}}\left[\left\|\mathcal{M}_\phi(s, a)-\mathcal{P}(s, a)\right\|\right]p(\phi)\mathrm{d}\phi \tag{By Lemma \ref{lem:mb-bound}}\\
-&\leq \frac{\gamma K}{1-\gamma}\left|\epsilon_{\mathcal{M}}\right|\int_{\Phi_\beta}\left|p(\phi)\right|\mathrm{d}\phi\notag\\
-&=\frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\mathcal{M}} \label{proof:theo43p2}
-\end{align}
-For the second part of (\ref{proof:theo43p1}), by Lemma \ref{lem:beta-drop-bound}, we can show that
-
-\begin{align}
-\int_{\Phi_\beta}\left|{V}_\alpha^{\pi, \mathcal{M}_{\phi}} - {V}^{\pi,\mathcal{M}_{\phi}}\right|p(\phi)\mathrm{d}\phi&\leq \frac{\alpha(1+\alpha)}{(1-\alpha)(1-\gamma)}\mathrm{R}_m\int_{\Phi_\beta}p(\phi)\mathrm{d}\phi \tag{By Lemma \ref{lem:beta-drop-bound}}\\
-&=\frac{\alpha(1+\alpha)(1-\beta)}{(1-\alpha)(1-\gamma)}\mathrm{R}_m \label{proof:theo43p3}
-\end{align}
-Go back to equation (\ref{proof:theo43p1}), it follows that
-
-\begin{align*}
-\left|{V}_\alpha^{\pi, \mathcal{M}^\beta}-{V}^{\pi, \mathcal{P}}\right| &\leq \int_{\Phi_\beta}\left|{V}^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right|p(\phi)\mathrm{d}\phi+\int_{\Phi_\beta}\left|\epsilon_\alpha\right|p(\phi)\mathrm{d}\phi\\
-&\leq \frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\mathcal{M}}+\frac{\alpha(1+\alpha)(1-\beta)}{(1-\alpha)(1-\gamma)}\mathrm{R}_m \tag{By equation (\ref{proof:theo43p2}) and (\ref{proof:theo43p3})}\\
-&\triangleq D_{\alpha,\beta}(\mathcal{M})
-\end{align*}
-
-\end{proof}
-
-\subsection{Proof of Proposition \ref{prop:performance}}
-
-\begin{proof}
-
-With Theorem \ref{the:MBDP-bound}, i.e., $\left|{V}_\alpha^{\pi, \mathcal{M}^\beta}-{V}^{\pi, \mathcal{P}}\right|\leq D_{\alpha,\beta}(\mathcal{M})$, we have
-
-\begin{equation}\label{eq:prop44p1}
-{V}^{\pi_{k+1}, \mathcal{P}} \geq {V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta)
-\end{equation}
-Since the LHS of (\ref{eq:prop44p1}), i.e., ${V}^{\pi_{k+1}, \mathcal{P}}$ is bigger than the RHS of (\ref{eq:prop44p1}), i.e., ${V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta)$, we can change the inequality into an equation with the RHS plus a update residual $\epsilon_{k+1}$:
-
-\begin{equation}\label{proof:prop44p1}
-{V}^{\pi_{k+1}, \mathcal{P}} = {V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta) + \epsilon_{k+1}
-\end{equation}
-Where
-
-\begin{equation}
-\epsilon_{k+1} \triangleq {V}^{\pi_{k+1}, \mathcal{P}} - \left[{V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta} - D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta)\right]
-\end{equation}
-With the general pattern equation (\ref{eq:algo-equation}), we have
-
-\begin{equation}\label{proof:prop44p2}
-{V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta) \geq {V}^{\pi_k,\mathcal{P}}-D_{\alpha,\beta}(\mathcal{P})
-\end{equation}
-Since
-
-\begin{align*}
-\epsilon_{\mathcal{P}} &= \underset{\phi\in\Phi}{\mathbb{E}}\left[\underset{s,a\sim \pi,\mathcal{P}}{\mathbb{E}}\left[\left\|\mathcal{P}(s, a)-\mathcal{P}(s, a)\right\|\right]\right] \tag{By equation (\ref{def:delta-M})}\\
-&=\underset{\phi\in\Phi}{\mathbb{E}}\left[0\right] = 0
-\end{align*}
-We can show that
-
-\begin{align}
-D_{\alpha,\beta}(\mathcal{P}) &= \frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\mathcal{P}}+\frac{\alpha(1+\alpha)(1-\beta)}{(1-\alpha)(1-\gamma)}\mathrm{R}_m\notag\\
-&=0+\frac{\alpha(1+\alpha)(1-\beta)}{(1-\alpha)(1-\gamma)}\mathrm{R}_m\notag\\
-&=\epsilon_\alpha \label{proof:prop44p3}
-\end{align}
-With equation (\ref{proof:prop44p1}), (\ref{proof:prop44p2}) and (\ref{proof:prop44p3}), it follows that
-
-\begin{equation}
-{V}^{\pi_{k+1}, \mathcal{P}}\geq {V}^{\pi_{k}, \mathcal{P}} + \left[\epsilon_{k+1} - \epsilon_\alpha\right]
-\end{equation}
-
-Obviously, the update residual $\epsilon_{k+1}$ is much larger than $\epsilon_\alpha$ most of the time during the training period, implying that $\left[\epsilon_{k+1} - \epsilon_\alpha\right]\geq 0$ \textbf{almost surely}, i.e.,
-
-\begin{equation}
-{V}^{\pi_{k+1}, \mathcal{P}}\ \overset{\mathrm{a.s.}}{\geq}\ {V}^{\pi_{k}, \mathcal{P}}+0 
-\end{equation}
-Where ``$\mathrm{a.s.}$'' means ``almost surely''. Then we finally get
-
-\begin{equation}
-{V}^{\pi_{0}, \mathcal{P}}\ \overset{\mathrm{a.s.}}{\leq}\ \cdots\ \overset{\mathrm{a.s.}}{\leq}\ {V}^{\pi_{k}, \mathcal{P}}\ \overset{\mathrm{a.s.}}{\leq}\ {V}^{\pi_{k+1}, \mathcal{P}}\ \overset{\mathrm{a.s.}}{\leq}\ \cdots
-\end{equation}
-
-\end{proof}
+算法架构的概述见图\ref{fig:algo-structure}，相应的伪代码在Algorithm\ref{algo:our-method}中展示。我们可以看到，当与环境交互时，我们将样本收集到环境重放缓冲区$mathcal{D}_{mathrm{env}}$，用于训练环境的模拟器模型。然后，我们实现双层ER程序，并对模型进行滚屏。来自模型的采样数据被填入一个临时缓冲区$\mathcal{D}_\mathrm{model}$。最后，我们使用$mathcal{D}_\mathrm{model}$的样本来优化策略$pi(a|s)$。
