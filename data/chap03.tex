@@ -1,6 +1,6 @@
 % !TeX root = ../main.tex
 
-\chapter{基于双层缓存的优先经验重放算法}
+\chapter{基于双层缓存的优先经验回放算法}
 
 \section{强化学习中的经验回放}
 
@@ -16,42 +16,204 @@
 
 这些问题在现有的工作中并没有得到太多关注，为此，我们设计了基于双层缓存的优先经验回放算法，可以有效解决上述提到的优先经验回放算法的局限性，学习更多的重要经验，提升强化学习的样本效率效率。
 
-\section{双层经验样本回放池设计}
+\section{双层经验样本回放池及回放算法设计}
 
-在优先经验回放算法的基础上，我们设计了一个双层经验回放池。我们在通常的经验重放方法的基础上增加了第二层重放缓冲区，并从经验池中实时提取样本，并将其加入第二层重放缓冲区。然后，这两个缓冲区中的样本被混合起来进行策略优化。我们表明，我们的方法确实提供了接近理想的优先采样分布。我们进行了实验来证明我们方法的有效性。
+\begin{figure}
+\centering
+\includegraphics[width=\textwidth]{figures/dber.pdf}
+\caption{双层优先经验回放算法示意图}
+\label{fig:algo-structure}
+\end{figure}
+
+在优先经验回放算法的基础上，我们设计了一个双层经验回放池。在原有的单层样本池基础上增加了第二层回放缓冲区。与通常的经验重放方法一样，它首先将观察到的样本存储在第一层经验回放池中，当第一层样本池填充满后，随机抽取一定比例的样本填入第二层回放缓冲区中。在这样的设计下，第二层的样本累积速度将会比第一层大幅减缓，也意味着第二层将有着更长时间的历史经验，对整体样本空间起到更好的覆盖效果。这样设计的动机是，当人类在从经验中学习时，并不会一位的按照固定速度从历史经验中进行回放学习，而是更高频地对短期经验进行快速回放、更低频地对长期经验进行慢速回放，从而既能实时更新最新的知识，也能更充分利用上较长时间的经验。
+
+在该样本池的设计下，我们对第一层和第二层的样本分别按照时序差分误差进行优先级排序，并将两层样本池中的样本取出进行混合回放学习，以实现不同速度的经验混合回放，从而生成更理想的优先经验回放样本分布。算法的结构示意图如图~\ref{fig:algo-structure}所示。
 
 
-% In this paper, we design a double layer experience replay mechanism to solve the limitations mentioned above. Like the usual experience replay approach, it first stores the observed samples in the
-% experience replay pool. But the difference is that  a second replay buffer is added afterwards for prioritizing the samples. The motivation for this is that we consider that humans do not fully prioritize all experiences when learning from experience, but only partially select important experiences to be learned first. We also set parameters to determine the size of the second layer buffer to dynamically adjust the degree of priority experience replay.
+\section{DPER算法描述与设计}
 
-在本文中，我们设计了一种双层经验重放机制来解决上述的限制。与通常的经验重放方法一样，它首先将观察到的样本存储在
-经验重放池。但不同的是，之后增加了第二个重放缓冲区，以确定样本的优先次序。这样做的动机是，我们认为人类在从经验中学习时，不会完全优先考虑所有的经验，而只是部分地选择重要的经验来先学习。我们还设置了一些参数来决定第二层缓冲区的大小，以动态地调整优先经验重放的程度。
+在本小节中，我们将介绍双层优先经验回放算法以及它如何帮助提高强化学习的样本效率。
 
+我们首先根据环境数据$\mathcal{D}_{\text{env}}$训练得到环境模型。得到模型后，我们先生成一定量的样本$(s_t, a_t, s_{t+1}, r_{t+1})$填充到第一层经验回放池中，并按照时序差分误差进行优先级排序。当第一层回放池填充完毕后，我们抽取一定比例的样本存入第二层缓存池中，并对其也进行一次时序差分误差优先级排序。随后将两层回放池中的样本进行混合回放提供给智能体进行策略优化学习。
 
-% In this subsection, we will introduce the Double Layer Experience Replay method and how it can help improve learning efficiency of Reinforcement Learning.
+策略优化更新后的策略将会重新与环境交互，生成新的交互样本用于改进环境模型的学习，而模型则会继续生成模拟数据填充加入双层样本回放池中。与基于模型的强化学习方法相结合，主要目的是为了能更快地生成样本，确保优先回放算法能更快地填充样本池并进行回放学习。
 
-% We firstly train a model based on the environment data, i.e., $\mathcal{D}_{\text{env}}$. After obtaining the model, we first generate a certain amount of samples to fill in the multi-layer batch, first take out hypothetical samples with large deviations for learning, and then directly give priority to infer and learn in the direction that may have large deviations to make up for the shortcomings of the agent policy, followed by regular learning. With the idea of Dyna-style RL, we continually transmit the collected real samples to the model for further optimization in the policy optimization cycle, which enables the model to provide simulation samples for the framework more efficiently and accurately. We also use the model ensemble approach in order to capture the uncertainty in environment.
+此外，为了能够让双层回放的设计更加灵活，我们设计了一个动态控制第二次回放池大小的机制，通过参数$\alpha\in[0,1]$控制第二层回放池容量大小。具体的做法是，我们在每次循环中抽取$\alpha$百分比的样本用于填充进第二层回放池，剩余$(1-\alpha)$百分比的样本则用于常规经验学习。参数$\alpha$的设定既可以是一个固定的值，也可以是一个随时间衰退的变量。
 
-% The algorithmic framework maintains two buffers: the first layer experience replay buffer which stores general transition samples (the form of $(s_t, a_t, s_{t+1}, r_{t+1})$) and the second layer experience replay buffer which stores the prioritized transition samples. At each time step $t$, a real experience $(s_t, a_t, s_{t+1}, r_{t+1})$ is collected and stored into the first layer experience replay buffer. Then the priority process starts to prioritize the samples and store them into the second layer experience replay buffer. A hypothetical experience is obtained by first selecting a state $s$ from the experience replay buffer (as shown in Figure \ref{fig:algo-structure}), then selecting an action $a$ according to the current policy, and then querying the model to get the next state $s'$ and reward $r$ to form an experience $(s, a, s', r)$. These hypothetical transitions are combined with real experiences into a single replay buffer to update the training parameters. The updates performed before taking the next action, are called \emph{planning updates}~\cite{sutton2018intro}, as they improve the action-value estimates---and so the policy---using a model. The choice of pairing states with on-policy actions to form hypothetical experiences has been reported to be beneficial~\cite{gu2016continuous,yangchen2018rem,janner2019trustmodel}.
+我们称上述所设计的算法为基于双层缓存的优先经验回放算法（Double-layer Prioritized Experience Replay，DPER）。流程的概述如算法~\ref{algo:dper-method}所展示。
 
-在本小节中，我们将介绍双层经验重放法以及它如何帮助提高强化学习的学习效率。
-
-我们首先根据环境数据训练一个模型，即$\mathcal{D}_{text{env}}$。得到模型后，我们先生成一定量的样本填充到多层批处理中，先取出偏差较大的假设样本进行学习，然后直接优先推断并学习可能存在较大偏差的方向，以弥补代理策略的不足，接着进行常规学习。利用Dyna式RL的思想，我们在策略优化周期中不断将收集到的真实样本传输给模型进行进一步优化，这使得模型能够更高效、更准确地为框架提供模拟样本。我们还使用了模型集合的方法，以捕捉环境中的不确定性。
-
-该算法框架保持两个缓冲区：第一层经验重放缓冲区，存储一般的过渡样本（形式为$(s_t, a_t, s_{t+1}, r_{t+1})$）；第二层经验重放缓冲区，存储优先级的过渡样本。在每个时间步长$t$，一个真实的经验$(s_t, a_t, s_{t+1}, r_{t+1})$被收集并存储到第一层经验回放缓冲区。然后，优先级过程开始对样本进行优先排序，并将其存储到第二层经验重放缓冲区。一个假设的经验是通过首先从经验回放缓冲器中选择一个状态$s$（如图\ref{fig:algo-structure}所示），然后根据当前策略选择一个行动$a$，然后查询模型以获得下一个状态$s'$和奖励$r$，形成一个经验$(s, a, s', r)$。这些假想的过渡与真实的经验结合到一个重放缓冲区，以更新训练参数。在采取下一个行动之前进行的更新，被称为\emph{规划更新}~\cite{sutton2018intro}，因为它们改善了行动价值的估计---因此也改善了政策---使用模型。据报道，选择将状态与政策上的行动配对，形成假设的经验是有益的\cite{gu2016continuous,yangchen2018rem,janner2019trustmodel}。
-
-% Specifically, the scale is controlled by the parameter $\alpha$: the first $\alpha$ scale samples are planned for prioritized experience replay, and the latter $(1-\alpha)$ scale samples are used for regular learning. Then we fill the prioritized samples into the second layer buffer, and then correct the sample distribution through importance sampling in the buffer. Finally, we combine the double layer experience replay for policy update.
-
-% The overview of the algorithm architecture is shown in Figure \ref{fig:algo-structure} and the corresponding pseudo-code is demonstrated in Algorithm \ref{algo:our-method}. As we can see, when interacting with the environment, we collect samples into environment replay buffer $\mathcal{D}_{\mathrm{env}}$, used for training the simulator model of the environment. Then we implement the double layer ER procedure and perform rollouts on the model. The sampled data from the model is filled into a temporary buffer $\mathcal{D}_\mathrm{model}$. Finally, we use samples from $\mathcal{D}_\mathrm{model}$ to optimize the policy $\pi(a|s)$.
-
-具体来说，规模由参数$alpha$控制：第一个$alpha$规模的样本计划用于优先的经验重放，而后一个$(1-alpha)$规模的样本则用于常规学习。然后，我们将优先级的样本填入第二层缓冲区，再通过缓冲区内的重要性抽样来修正样本分布。最后，我们结合双层经验回放进行策略更新。
-
-算法架构的概述见图\ref{fig:algo-structure}，相应的伪代码在Algorithm\ref{algo:our-method}中展示。我们可以看到，当与环境交互时，我们将样本收集到环境重放缓冲区$mathcal{D}_{mathrm{env}}$，用于训练环境的模拟器模型。然后，我们实现双层ER程序，并对模型进行滚屏。来自模型的采样数据被填入一个临时缓冲区$\mathcal{D}_\mathrm{model}$。最后，我们使用$mathcal{D}_\mathrm{model}$的样本来优化策略$pi(a|s)$。
+\begin{algorithm}
+\caption{基于双层缓存的优先经验回放算法}
+\label{algo:dper-method}
+\begin{algorithmic}
+\STATE 初始化超参数 $\alpha$、策略 $\pi_\theta$、环境样本回放池 $\mathcal{D}_{\mathrm{env}}$、模型样本回放池 $\mathcal{D}_{\mathrm{model}}$\\
+\FOR{$N_\mathrm{epoch}$ 迭代次数}
+    \STATE 在环境中基于策略 $\pi_\theta$ 采取行动进行交互
+    \STATE 将生成的交互样本填充至 $\mathcal{D}_{\mathrm{env}}$\\
+    \FOR{$N_\mathrm{train}$ 迭代次数}
+        \STATE 基于样本回放池 $\mathcal{D}_{\mathrm{env}}$训练概率模型$\mathcal{M}_\phi$\\
+        \STATE 建立模型子集$\mathcal{M} = \{\mathcal{M}_{\phi_1},\ldots,\mathcal{M}_{\phi_{N}}\}$\\
+        \FOR{$t=1,2,\ldots ,T$}
+            \STATE 从模型子集$\mathcal{M}$中随机抽取一个模型$\mathcal{M}_{\phi_t}$\\
+            \STATE 在模型 $\mathcal{M}_{\phi_t}$ 上使用策略 $\pi_\theta$ 生成模拟样本 $x=\left(s_{t+1},s_t,a_t\right)$ \\
+            \STATE 将样本填入第一层样本回放池 $\mathcal{B}_1$中\\
+        \ENDFOR
+        \STATE 根据是时序差分误差计算 $\mathcal{B}_1$ 的优先级并排序\\
+        \FOR{$x\in \mathcal{B}_1$}
+            \IF{随机数 $p\sim U(0,1)\leq \alpha$}
+                \STATE 将样本 $x$ 按排序后的顺序填充至第二层样本池 $\mathcal{B}_{2}$中
+            \ENDIF
+        \ENDFOR
+        \STATE 将两层样本池进行临时拼接： $\mathcal{D}_{\mathrm{model}}\leftarrow\mathcal{D}_{\mathrm{model}}\bigcup(\mathcal{B}_2\bigoplus\mathcal{B}_1)$ ($\bigoplus$ 表示集合拼接)
+    \ENDFOR
+    \STATE 在 $\mathcal{D}_{\mathrm{model}}$上进行 $\pi_\theta$的优化: $\theta\leftarrow \theta - \lambda\nabla_\theta J_\theta(\mathcal{D}_{\mathrm{model}})$
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
 
 \section{实验设计与分析}
 
-为了理解双层经验重放的潜在好处，我们引入了一个悬崖行走环境（如图\ref{fig:cliff-env}所述）。很明显，有一条最优路径，如图中的红线所示。然而，这条最优路径也是最危险的路径。如果算法在早期阶段效率不高，随时可能不小心从最优路径进入悬崖，造成较大的惩罚，从而影响算法的收敛性，所以具有较好鲁棒性的算法在悬崖行走环境中可以表现得更好。
+\subsection{CliffWalking环境实验设计与分析}
 
-我们使用政策梯度（PG）算法，并设计了一个变体，在悬崖行走环境中进行对比实验时，会放弃一些滚动样本。如图所示，原始PG算法中的代理人倾向于从远离悬崖的安全路径进行探索，直到它获得足够的信息来慢慢接近最优路径。相比之下，具有双层经验重放的PG算法能够更快地学习，并且能够更有把握地提前接近危险区域，从而更好地收敛到最优路径。统计结果表明，用双层经验重放法训练的策略落入悬崖区的次数较少，在评估过程中表现出更好的稳健性。
+\begin{figure}
+    \centering
+    \subcaptionbox{Cliff Walking Environment}{
+        \centering
+        \includegraphics[width=0.45\textwidth]{figures/cliff-env.pdf}
+        \label{fig:cliff-env}
+    }
+    % \hspace{0.5cm}
+    \subcaptionbox{The effect of rollout dropout}{
+        \centering
+        \includegraphics[width=0.45\textwidth]{figures/cliffwalking.pdf}
+        \label{fig:cliff-dis}
+    }
+    \caption{(a) Cliff-Walking环境示意图 (b) Cliff-Walking实验结果曲线}
+\end{figure}
 
-表\ref{tab:cliff-stats}显示了在CliffWalking环境下使用单层或双层重放缓冲区的策略梯度的评估统计结果。这些指标是落入悬崖区的概率，以及平均回报率。每次实验的运行由3组种子组成，每次实验需要2000步。可以看出，当使用双层重放缓冲器时，该算法的表现比单层重放缓冲器的情况要好。这一激励性实验给了我们设计算法的灵感。
+为了直观理解双层经验重放的潜在好处，我们先设计了一组简单环境下的实验。我们引入了Cliff-Walking环境（如图\ref{fig:cliff-env}所示）。在该环境下只存在唯一一条最优路径，如图中的红线所示。然而，这条最优路径也是最危险的路径。如果算法在早期阶段效率不高，随时可能不小心从最优路径进入悬崖，造成较大的惩罚，从而影响算法的收敛性。在该环境下算法样本效率的提升会显著改善训练曲线的收敛速度。
+
+我们使用PER算法进行测试，并设计了一个双层回放池的版本。如图所示，原始PER算法中的智能体倾向于从远离悬崖的安全路径进行探索，直到它获得足够的信息来慢慢接近最优路径。相比之下，具有双层经验回放的PER算法能够更快地学习，并且能够更有把握地提前接近危险区域，从而更好地收敛到最优路径。统计结果表明，用双层经验重放法训练的策略落入悬崖区的次数较少，在评估过程中表现出更好的稳健性。
+
+表\ref{tab:cliff-stats}显示了在CliffWalking环境下使用单层或双层重放缓冲区的PER算法统计结果。这些指标是落入悬崖区的概率，以及平均收益。每次实验的运行由3组随机种子生成，每次实验需要2000步。可以看出，当使用双层回放时，PER算法的表现比单层回放缓冲器的整体表现要好。
+
+\begin{table}
+\centering
+\begin{tabular}{l|l|l|l|l|l} 
+\toprule[2pt]
+                                                    & Layer  & Seed 1           & Seed 2           & Seed 3           & Avg.              \\ 
+\hline
+\multirow{2}{*}{$P_\text{mean}(\text{Fail})$~ (\%)} & single & 0.645            & 0.678            & 0.611            & 0.645             \\ 
+\cline{2-6}
+                                                    & double & \textbf{0.357}   & \textbf{0.332}   & \textbf{0.312}   & \textbf{0.335}    \\ 
+\hline
+\multirow{2}{*}{$P_\text{std}(\text{Fail})$~ (\%)}  & single & 0.294            & 0.318            & 0.337            & 0.316             \\ 
+\cline{2-6}
+                                                    & double & \textbf{0.201}   & \textbf{0.197}   & \textbf{0.185}   & \textbf{0.194}    \\ 
+\hline
+\multirow{2}{*}{$R_\text{mean}$}                    & single & -13.258          & \textbf{-13.179} & -14.188          & -13.542           \\ 
+\cline{2-6}
+                                                    & double & \textbf{-12.978} & -13.205          & \textbf{-13.189} & \textbf{-13.124}  \\ 
+\hline
+\multirow{2}{*}{$R_\text{std}$}                     & single & 4.038            & 3.971            & 3.862            & 3.957             \\ 
+\cline{2-6}
+                                                    & double & \textbf{2.225}   & \textbf{2.378}   & \textbf{2.804}   & \textbf{2.469}    \\
+\bottomrule[2pt]
+\end{tabular}
+\caption{Result of Cliff Walking}
+\label{tab:cliff-stats}
+\end{table}
+
+\subsection{Mujoco环境实验设计与分析}
+
+在本次验证实验中，我们选用了OpenAI-Gym库中的经典Mujoco仿真环境\cite{todorov2012mujoco}用于验证，具体地，我们选择了Mujoco下的Hopper，Walker，HalfCheetah和Ant这四个环境，他们都是验证智能体在连续动作条件下决策性能的常用测试环境，这四个环境的具体测试任务如下描述。
+
+\begin{itemize}
+    \item \textbf{Hopper}: 控制一个单腿机器人尽可能快地向前行走。
+    \item \textbf{Walker2d}: 控制一个双腿机器人尽可能快地往前行走。
+    \item \textbf{HalfCheetah}: 控制一个双腿爬行机器人尽可能快地向前行走。
+    \item \textbf{Ant}: 控制一个四腿爬行机器人尽可能快地向前行走。
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \subcaptionbox{Hopper}{
+        \centering
+        \includegraphics[width=0.2\textwidth]{figures/hopper.png}
+        \label{fig:hopper}
+    }
+    \subcaptionbox{Walker}{
+        \centering
+        \includegraphics[width=0.2\textwidth]{figures/walker.png}
+        \label{fig:walker}
+    }
+    \subcaptionbox{HalfCheetah}{
+        \centering
+        \includegraphics[width=0.2\textwidth]{figures/cheetah.png}
+        \label{fig:cheetah}
+    }
+    \subcaptionbox{Ant}{
+        \centering
+        \includegraphics[width=0.2\textwidth]{figures/ant.png}
+        \label{fig:ant}
+    }
+    \caption{实验所使用的四种仿真Mujoco环境示意图}
+    \label{fig:env-figures}
+\end{figure}
+
+在本实验中，我们关于样本效率对比了多个基线方法，具体而言，我们将基于模型的强化学习算法中的代表算法MBPO\cite{janner2019trust}，以及它与PER \cite{schaul2016prioritized}的结合MBPO+PER进行了对比实验。
+
+在不同环境的实验中所使用的参数设定如表~\ref{tab:parameters}所示。
+
+\begin{table}
+\centering
+\begin{tabular}{c|c|c|c|c|c} 
+\toprule[2pt]
+Env         & Epochs & $\alpha$ & \begin{tabular}[c]{@{}l@{}}buffer\\size\end{tabular} & \begin{tabular}[c]{@{}l@{}}env steps\\per epoch\end{tabular} & \begin{tabular}[c]{@{}l@{}}model steps\\per epoch\end{tabular}  \\ 
+\hline
+Hopper      & 120    & 0.2      & $10^5$                                              & 1000                                                         & 100                                                             \\ 
+\hline
+Walker      & 300    & 0.2      & $10^5$                                              & 1000                                                         & 100                                                             \\ 
+\hline
+HalfCheetah & 400    & 0.2      & $10^5$                                              & 1000                                                         & 200                                                             \\ 
+\hline
+Ant         & 300    & 0.2      & $10^5$                                              & 1000                                                         & 100                                                             \\
+\bottomrule[2pt]
+\end{tabular}
+\caption{Parameter Settings}
+\label{tab:parameters}
+\end{table}
+
+具体而言，我们在Hopper环境运行了120轮循环，每轮循环包含1000步更新；相对应地，我们在Walker环境运行了300轮循环$\times$1000步；在HalfCheetah环境运行率400轮循环$\times$1000步；在Ant环境运行了300轮循环$\times$1000步。环境模型所使用的神经网络结构为$4\times 200$多层感知机（MLP）结构，这些模型在学习后均被用于预测未来100步的状态转移过程。
+
+\begin{figure}
+  \centering
+  \includegraphics[width=\textwidth]{figures/dler.pdf}
+  \caption{DPER算法与其他基线算法在不同环境下的训练曲线}
+  \label{fig:dper-performance}
+\end{figure}
+
+在这些参数设定下，最终的训练曲线如图~\ref{fig:dper-performance}所示。可以看出，DPER算法由于双层缓存的优化，取得了远超其他算法的性能。
+
+为了进一步确定DPER算法中参数$\alpha$的取值，我们还进行了一组参数实验，实验结果如表~\ref{tab:dper-ablation}所示。可以看出，当$\alpha$取值为0.2左右时将能取得最好的性能优化效果。
+
+\begin{table}
+\centering
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{c|c|c|c|c|c|c} 
+\toprule[2pt]
+$\alpha$                           & 0       & 0.1     & 0.2             & 0.3              & 0.4     & 0.5      \\ 
+\hline
+$R_\text{avg}(\text{Hopper})$      & 3985.4  & 4057.1  & \textbf{4166.2} & 4030.7           & 3864.5  & 3796.5   \\ 
+\hline
+$R_\text{avg}(\text{Walker})$      & 5738.2  & 5943.4  & \textbf{6083.8} & 6008.1           & 5882.9  & 5694.4   \\ 
+\hline
+$R_\text{avg}(\text{HalfCheetah})$ & 15479.5 & 15630.1 & 15879.2         & \textbf{16036.1} & 15640.4 & 15038.1  \\ 
+\hline
+$R_\text{avg}(\text{Ant})$         & 5975.2  & 6023.5  & \textbf{6249.8} & 6199.5           & 6047.1  & 5926.3   \\
+\bottomrule[2pt]
+\end{tabular}
+}
+\caption{Result of Ablation Study}
+\label{tab:dper-ablation}
+\end{table}

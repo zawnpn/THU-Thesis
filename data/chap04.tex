@@ -417,44 +417,7 @@ D_{\alpha,\beta}(\mathcal{P}) &= \frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\ma
 
 \section{Mujoco环境实验设计与分析}
 
-为了能够进一步验证MBDP算法的实际效果，我们在强化学习的经典测试环境Mujoco仿真程序内进行验证实验。
-
-\subsection{实验环境与平台}
-
-在本次验证实验中，我们选用了OpenAI-Gym库中的经典Mujoco仿真环境\cite{todorov2012mujoco}用于验证，具体地，我们选择了Mujoco下的Hopper，Walker，HalfCheetah和Ant这四个环境，他们都是验证智能体在连续动作条件下决策性能的常用测试环境，这四个环境的具体测试任务如下描述。
-
-\begin{itemize}
-    \item \textbf{Hopper}: 控制一个单腿机器人尽可能快地向前行走。
-    \item \textbf{Walker2d}: 控制一个双腿机器人尽可能快地往前行走。
-    \item \textbf{HalfCheetah}: 控制一个双腿爬行机器人尽可能快地向前行走。
-    \item \textbf{Ant}: 控制一个四腿爬行机器人尽可能快地向前行走。
-\end{itemize}
-
-\begin{figure}[H]
-    \centering
-    \subcaptionbox{Hopper}{
-        \centering
-        \includegraphics[width=0.2\textwidth]{figures/hopper.png}
-        \label{fig:hopper}
-    }
-    \subcaptionbox{Walker}{
-        \centering
-        \includegraphics[width=0.2\textwidth]{figures/walker.png}
-        \label{fig:walker}
-    }
-    \subcaptionbox{HalfCheetah}{
-        \centering
-        \includegraphics[width=0.2\textwidth]{figures/cheetah.png}
-        \label{fig:cheetah}
-    }
-    \subcaptionbox{Ant}{
-        \centering
-        \includegraphics[width=0.2\textwidth]{figures/ant.png}
-        \label{fig:ant}
-    }
-    \caption{实验所使用的四种仿真Mujoco环境示意图}
-    \label{fig:env-figures}
-\end{figure}
+为了能够进一步验证MBDP算法的实际效果，我们同样在强化学习的经典测试环境Mujoco仿真程序内进行验证实验。
 
 本次实验所使用的参数如表~\ref{tab:hyperparameters}所示进行设定。
 
@@ -514,8 +477,6 @@ Time & $\approx 10$ hours & $\approx 20$ hours & $\approx 32$ hours & $\approx 4
 \caption{单次实验在各环境上的计算时间}
 \label{tab:run-time}
 \end{table}
-
-\subsection{实验设计与结果分析}
 
 为了证明MBDP方法中上述所加入的模拟数据筛选模块和模型集成筛选模块作为改进方案的可行性，以及验证改进效果，本次实验主要目标为通过实验验证以下问题:
 
