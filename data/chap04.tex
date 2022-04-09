@@ -1,52 +1,28 @@
 % !TeX root = ../main.tex
 
-\chapter{基于模型集成的筛选规划算法}
+\chapter{基于模型集成的筛选规划算法}\label{chap:mbdp}
 
-\section{条件风险价值CVaR}
+基于第~\ref{chap:background}~章中介绍的条件风险价值（CVaR）的思想，我们可以类似的在强化学习经验回放样本池中加入这一设计，将更低奖励反馈的样本加以更多的学习，而对过高奖励反馈的样本进行适当的筛选和丢弃，确保强化学习算法所学策略能够更稳定地处理高风险状态。
 
-虽然目前最先进的基于模型的方法已经取得了显著的性能，但它们通常只适合于训练的环境，当部署到扰动的真实环境时，性能往往会急剧下降。条件风险价值（CVaR）是一种用于计算最大风险的指标，借由CVaR指标，我们可以通过学习消极样本数据来提高强化学习算法的鲁棒性，得以解决强化学习算法中安全性不足的一大挑战。
+\section{MBDP算法描述与设计}
 
-\begin{figure}
-  \centering
-  \includegraphics[width=\linewidth]{figures/CVaR.png}
-  \caption{CVaR计算示意图}
-  \label{fig:cvar}
-\end{figure}
-
-如图\ref{fig:cvar}所示，首先定义风险价值（VaR）:
-\begin{equation}
-    \mathrm{VaR}_\alpha=\inf\left\{z\mid\mathrm{P}(Z\geq z)\leq 1-\alpha\right\}
-\end{equation}
-VaR的含义为在给定置信度$\alpha$下的最大可能损失，更进一步地，我们可定义条件风险价值（CVaR）：
-\begin{equation}
-    \mathrm{CVaR}_\alpha = \mathbb{E}\left[Z\mid Z\geq \mathrm{VaR}_\alpha\right]
-\end{equation}
-CVaR的含义为收益风险超过VaR部分的平均期望损失。
-
-基于CVaR的思想，我们可以类似的在强化学习经验回放样本池中加入这一设计，将更低奖励反馈的样本加以更多的学习，而对过高奖励反馈的样本进行适当的筛选和丢弃，确保强化学习算法所学策略能够更稳定地处理高风险状态。
-
-\section{MBDP算法设计}
-
-正如前一节的介绍，尽管在CVaR条件风险价值的思路下可以实现鲁棒性的提升，但是显然易见的是筛选丢弃样本的做法会损失一部分性能。为此，我们提出了基于模型集成的筛选规划算法（Model-Based Dropout Planning，MBDP），在做到提升算法鲁棒性的同时维持原有的算法性能。
+尽管在CVaR条件风险价值的思路下可以实现鲁棒性的提升，但是显然易见的是筛选丢弃样本的做法会损失一部分性能。为此，我们提出了基于模型集成的筛选规划算法（Model-Based Dropout Planning，MBDP），在做到提升算法鲁棒性的同时维持原有的算法性能。
 
 \subsection{环境模型的集成学习与筛选}\label{sec:model-method}
 
 传统的不确定性环境建模和集成方法，虽然已经能够较好地模拟真实复杂环境并且捕捉到环境的不确定性 \cite{duan2007multi}，但并不能很好地控制模拟的精准程度，本论文在不确定性环境建模的基础上，结合传统集成学习的方法，设计了模型的集成和筛选机制。
 
 具体地，首先训练学习一组环境模型集合$\{\mathcal{M}_{\phi_1},\mathcal{M}_{\phi_2},\ldots\}$，集合中每一个环境模型都是一个概率神经网络，其输出$\mu_{\phi_i},\sigma_{\phi_i}$构成高斯分布$\mathcal{N}(\mu_{\phi_i}(s,a),\sigma_{\phi_i}(s,a))$，环境模型对于下一时刻的状态预测则服从该分布，即
-
 \begin{equation}
     s^\prime \sim \mathcal{M}_{\phi_i}(s,a) = \mathcal{N}(\mu_{\phi_i}(s,a),\sigma_{\phi_i}(s,a))
 \end{equation}
-
 在训练环境模型的同时，根据真实环境中采样得到的真实样本$(S,A)$，可以计算并记录模型的期望偏差：
 \begin{equation}
     \mathrm{bias}(\phi_i) = \underset{S,A\sim \pi,\mathcal{P}}{\mathbb{E}}\|\mathcal{M}_{\phi_i}(S,A)-\mathcal{P}(S,A)\|
 \end{equation}
+其中$\|\cdot\|$是状态空间$\mathcal{S}$上的范数距离，该式的含义为所训练的环境模型$\mathcal{M}$与真实环境$\mathcal{P}$之间的范数意义距离。在上述模型集合的基础上，首先根据所计算的$\mathrm{bias}(\phi_i)$大小进行升序重排，并设定一个概率参数$\beta\in(0,1]$，筛选出$\mathrm{bias}$在$\beta$分位数以前的模型，保留得到筛选后的模型集合$\mathcal{M}^\beta = \{\mathcal{M}_{\phi_1},\mathcal{M}_{\phi_2},\ldots,\mathcal{M}_{\phi_{N_\beta}}\}$，其中$N_\beta$是前面所描述的升序排序后的集合索引$\left\{1,2,\ldots,N_\beta,\ldots\right\}$中的$\beta$分位数。
 
-其中$\|\cdot\|$是状态空间$\mathcal{S}$上的范数距离，该式的含义为所训练的环境模型$\mathcal{M}$与真实环境$\mathcal{P}$之间的范数意义距离。在上述模型集合的基础上，首先根据所计算的$\mathrm{bias}(\phi_i)$大小进行升序重排，并设定一个概率参数$\alpha\in(0,1]$，筛选出$\mathrm{bias}$在$\alpha$分位数以前的模型，保留得到筛选后的模型集合$\mathcal{M}^\alpha = \{\mathcal{M}_{\phi_1},\mathcal{M}_{\phi_2},\ldots,\mathcal{M}_{\phi_{N_\alpha}}\}$，其中$N_\alpha$是前面所描述的升序排序后的集合索引$\left\{1,2,\ldots,N_\alpha,\ldots\right\}$中的$\alpha$分位数。
-
-需要注意的是，用于集成的不确定性模型集合并不是$\mathrm{bias}$越小越好，过小的$\mathrm{bias}$可能意味着过拟合的环境模型。参数$\alpha$的重要用处是可以动态地调整模型集合的整体精确性，它能与下一节将介绍的参数$\beta$协作调整强化学习的收益性能与鲁棒性。
+需要注意的是，用于集成的不确定性模型集合并不是$\mathrm{bias}$越小越好，过小的$\mathrm{bias}$可能意味着过拟合的环境模型。参数$\beta$的重要用处是可以动态地调整模型集合的整体精确性，它能与下一节将介绍的参数$\alpha$协作调整强化学习的收益性能与鲁棒性。
 
 \subsection{环境模型的数据生成与筛选}\label{sec:rollout-method}
 
@@ -54,37 +30,25 @@ CVaR的含义为收益风险超过VaR部分的平均期望损失。
 
 为了解决这一问题，本论文提出了一种主动关注较坏情况的样本筛选机制，适当延缓强化学习训练速度，提升决策策略的鲁棒性。
 
-具体地，基于上一节得到的$\mathcal{M}^{\alpha}$模型集合，在每一步都随机抽取一个模型$\mathcal{M}_{\phi_i}\in\mathcal{M}^\alpha$，然后使用该模型进行下一时刻的状态预测，即$s_{t+1}\sim \mathcal{M}_{\phi_t}(s_t,a_t), \phi_t\in\Phi_\alpha$，这样的一组状态和动作组成模拟样本$x=\left(s_{t+1},s_t,a_t\right)$，填入缓存池，然后相似地以一个概率参数$\beta\in(0,1]$进行筛选，从中挑选出反馈奖励值相对较低的样本，得到一个筛选后的$\beta$分位数样本集合
-
-\begin{equation}
-    \mathcal{B}_\beta^{\pi,\mathcal{M}^\alpha}=\left\{x|x\in\mathcal{B}^{\pi,\mathcal{M}^\alpha},r(x)\leq r_\beta(\mathcal{B}^{\pi,\mathcal{M}^\alpha})\right\}
+具体地，基于上一节得到的$\mathcal{M}^{\beta}$模型集合，在每一步都随机抽取一个模型$\mathcal{M}_{\phi_i}\in\mathcal{M}^\beta$，然后使用该模型进行下一时刻的状态预测，即$s_{t+1}\sim \mathcal{M}_{\phi_t}(s_t,a_t), \phi_t\in\Phi_\beta$，这样的一组状态和动作组成模拟样本$x=\left(s_{t+1},s_t,a_t\right)$，填入缓存池，然后相似地以一个概率参数$\alpha\in(0,1]$进行筛选，从中挑选出反馈奖励值相对较低的样本，得到一个筛选后的$\alpha$分位数样本集合
+\begin{equation}\label{def:batch-alpha-beta}
+    \mathcal{B}_\alpha^{\pi,\mathcal{M}^\beta}=\left\{x|x\in\mathcal{B}^{\pi,\mathcal{M}^\beta},r(x|s)\leq r_{1-\alpha}(\mathcal{B}^{\pi,\mathcal{M}^\beta}|s), \forall s \in \mathcal{S}\right\},
 \end{equation}
-其中$\mathcal{B}^{\pi,\mathcal{M}^\alpha}=\left\{x|x\triangleq\left(s_{t+1},s_t,a_t\right)\sim\pi,\mathcal{M}^\alpha\right\}$， $r_\beta(\mathcal{B}^{\pi,\mathcal{M}^\alpha})$ 是缓存池 $\mathcal{B}^{\pi,\mathcal{M}^\alpha}$的$\beta$分位数。
+
+其中$\mathcal{B}^{\pi,\mathcal{M}^\beta}=\left\{x|x\triangleq\left(s_{t+1},s_t,a_t\right)\sim\pi,\mathcal{M}^\beta\right\}$， $r_{1-\alpha}(\mathcal{B}^{\pi,\mathcal{M}^\beta}|s)$ 是缓存池 $\mathcal{B}^{\pi,\mathcal{M}^\beta}$的$100\times(1-\alpha)$分位数。
 
 \subsection{算法描述与整体框架}
 
-\begin{figure}[tbh]
+\begin{figure}[t]
 \centering
 \includegraphics[width=\textwidth]{figures/mbdp.pdf}
-\caption{算法整体框架结构。}
-\label{fig:algo-structure}
+\caption{基于模型集成的筛选规划算法示意图}
+\label{fig:mbdp-structure}
 \end{figure}
 
 由于在强化学习中模拟误差越小，算法的收敛性能则越好，观察公式(\ref{eq:MBDP-bound})中的误差上界$D_{\alpha,\beta}(\mathcal{M})$可知，强化学习的算法性能与参数$\alpha$成反比，与参数$\beta$成正比，又根据\ref{sec:model-method}节和\ref{sec:rollout-method}节的介绍可知，策略的鲁棒性显然与参数$\alpha$成正比，与参数$\beta$成反比，恰好与前面的作用效果相反。
 
-因此，本论文可以动态性地调整参数$\alpha,\beta$来取得算法性能和最终策略鲁棒性之间的平衡，从而得到不同属性的强化学习决策策略：
-
-\begin{itemize}
-    \item \textbf{平衡的决策策略}：将参数$\alpha$和$\beta$调整为适中大小的概率值，适用于一般的普通环境；
-    \item \textbf{收益性能较高的决策策略}：将参数$\alpha$调整为较小的概率值，$\beta$调整为较大的概率值，适用于相对稳定的环境；
-    \item \textbf{鲁棒性较好的决策策略}：将参数$\alpha$调整为较大的概率值，$\beta$调整为较小的概率值，适用于干扰较大的环境。
-\end{itemize}
-
-基于\ref{sec:model-method}节和\ref{sec:rollout-method}节的提出的改进方案思路，将其整合进传统的基于模型的强化学习算法框架，得到改进的算法，算法整体框架如图\ref{fig:algo-structure}所示。
-
-首先通过与环境交互产生样本，用于训练概率模型并集成模拟，两个筛选模块作为主要改进加入到模拟数据生成的环节中，最终提供给策略优化公式对策略$\pi(a|s)$进行优化，并进行下一轮迭代。MBDP算法的主要流程如算法~\ref{algo:our-method}所示。
-
-\begin{algorithm}[tb]
+\begin{algorithm}[t]
 \caption{基于模型集成的筛选规划算法 (\textbf{MBDP})}
 \label{algo:our-method}
 \begin{algorithmic}
@@ -112,9 +76,36 @@ CVaR的含义为收益风险超过VaR部分的平均期望损失。
 \end{algorithmic}
 \end{algorithm}
 
+因此，本论文可以动态性地调整参数$\alpha,\beta$来取得算法性能和最终策略鲁棒性之间的平衡，从而得到不同属性的强化学习决策策略：
+
+\begin{itemize}
+    \item 平衡的决策策略：将参数$\alpha$和$\beta$调整为适中大小的概率值，适用于一般的普通环境；
+    \item 收益性能较高的决策策略：将参数$\alpha$调整为较小的概率值，$\beta$调整为较大的概率值，适用于相对稳定的环境；
+    \item 鲁棒性较好的决策策略：将参数$\alpha$调整为较大的概率值，$\beta$调整为较小的概率值，适用于干扰较大的环境。
+\end{itemize}
+
+基于\ref{sec:model-method}节和\ref{sec:rollout-method}节的提出的改进方案思路，将其整合进传统的基于模型的强化学习算法框架，得到改进的算法，算法整体框架如图\ref{fig:mbdp-structure}所示。
+
+首先通过与环境交互产生样本，用于训练概率模型并集成模拟，两个筛选模块作为主要改进加入到模拟数据生成的环节中，最终提供给策略优化公式对策略$\pi(a|s)$进行优化，并进行下一轮迭代。MBDP算法的主要流程如算法~\ref{algo:our-method}所示。
+
 \section{算法理论分析}
 
-在MBDP方法中，缓存池里的模拟样本构成的期望收益记为${V}^{\pi,\mathcal{M}^\alpha}_\beta$。本论文可以证明，加入样本筛选机制后的模拟期望收益，与真实环境中期望收益的差异为一个受参数$\beta$控制的上界，如定理 \ref{the:beta-drop-bound} 所述。
+记在环境$\mathcal{P}$下，使用策略$\pi$进行交互所得的标准状态价值函数为
+\begin{equation}\label{def:eta-s}
+    {V}^{\pi,\mathcal{P}}(s) = \underset{\{a_0,s_1,\ldots\} \sim \pi,\mathcal{P}}{\mathbb{E}}\left[\sum_{t=0}^\infty\gamma^t r(s_t,a_t)\mid s_0=s\right].
+\end{equation}
+
+为便于分析，使用${V}^{\pi,\mathcal{P}}$表示基于随机初始状态的期望收益：
+\begin{equation}\label{def:eta-expectation}
+    {V}^{\pi,\mathcal{P}} = \underset{s_0\in\mathcal{S}}{\mathbb{E}} \left[{V}^{\pi,\mathcal{P}}(s_0)\right].
+\end{equation}
+
+可定义在MBDP方法中缓存池里的模拟样本构成的期望收益为${V}^{\pi,\mathcal{M}_\phi}_\alpha$：
+\begin{equation}\label{def:eta-beta}
+    {V}^{\pi,\mathcal{M}_\phi}_\alpha=\mathbb{E}\left[{\sum}_{\{s_0,a_0,\ldots\} \sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right].
+\end{equation}
+
+本论文可以证明，加入样本筛选机制后的模拟期望收益，与真实环境中期望收益的差异为一个受参数$\beta$控制的上界，如定理 \ref{the:beta-drop-bound} 所述。
 
 \begin{theorem}\label{the:beta-drop-bound}
 
@@ -312,7 +303,6 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 其中
 \begin{equation}
     \epsilon_\alpha \triangleq |{V}_\alpha^{\pi, \mathcal{M}_{\phi}} - {V}^{\pi,\mathcal{M}_{\phi}}|   \leq \frac{\alpha}{1-\gamma}\mathrm{R_{m}}
-\label{eq:eps-beta}
 \end{equation}
 而$\epsilon_{k+1}$表示更新残差，记作
 \begin{equation}
@@ -417,42 +407,35 @@ D_{\alpha,\beta}(\mathcal{P}) &= \frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\ma
 
 \section{Mujoco环境实验设计与分析}
 
-为了能够进一步验证MBDP算法的实际效果，我们同样在强化学习的经典测试环境Mujoco仿真程序内进行验证实验。
-
-本次实验所使用的参数如表~\ref{tab:hyperparameters}所示进行设定。
-
-\begin{table}
+\begin{table}[ht]
 \centering
 
-\begin{tabular}{c|cccccccccc}
-\toprule[2pt]
-\begin{tabular}[c]{@{}c@{}}environment\\ name\end{tabular} &
-  epochs &
-  \begin{tabular}[c]{@{}c@{}}env steps\\ per epoch\end{tabular} &
-  \begin{tabular}[c]{@{}c@{}}rollout\\ batch\end{tabular} &
-  \begin{tabular}[c]{@{}c@{}}policy update\\ per env step\end{tabular} &
-  \begin{tabular}[c]{@{}c@{}}model update\\ per env step\end{tabular} &
+\begin{tabular}{ccccccccc}
+\toprule
+  \begin{tabular}[c]{@{}c@{}}环境\end{tabular} &
+  \begin{tabular}[c]{@{}c@{}}训练步数\end{tabular} &
+  \begin{tabular}[c]{@{}c@{}}缓存大小\end{tabular} &
+  \begin{tabular}[c]{@{}c@{}}策略更新\\步数\end{tabular} &
+  \begin{tabular}[c]{@{}c@{}}模型更新\\步数\end{tabular} &
   $\alpha$ &
   $\beta$ &
   $\gamma$ &
-  \begin{tabular}[c]{@{}c@{}}ensemble\\ size\end{tabular} &
-  \begin{tabular}[c]{@{}c@{}}network\\ arch\end{tabular} \\
-\midrule[1pt]
-Hopper      & 120 & 1000 & $10^5$ & 20 & 250 & 0.2 & 0.2 & 0.99 & 10 & \begin{tabular}[c]{@{}c@{}}MLP \\ ($4\times 200$)\end{tabular} \\
-Walker2d    & 300 & 1000 & $10^5$ & 20 & 250 & 0.2 & 0.2 & 0.99 & 10 & \begin{tabular}[c]{@{}c@{}}MLP \\ ($4\times 200$)\end{tabular} \\
-HalfCheetah & 400 & 1000 & $10^5$ & 40 & 250 & 0.2 & 0.2 & 0.99 & 10 & \begin{tabular}[c]{@{}c@{}}MLP \\ ($4\times 200$)\end{tabular} \\
-Ant         & 300 & 1000 & $10^5$ & 20 & 250 & 0.2 & 0.2 & 0.99 & 10 & \begin{tabular}[c]{@{}c@{}}MLP \\ ($4\times 200$)
+  \begin{tabular}[c]{@{}c@{}}网络结构\end{tabular} \\
+\midrule
+Hopper      & 120000 & $10^5$ & 20 & 250 & 0.2 & 0.2 & 0.99 & \begin{tabular}[c]{@{}c@{}}MLP \\ ($4\times 200$)\end{tabular} \\
+Walker    & 300000 & $10^5$ & 20 & 250 & 0.2 & 0.2 & 0.99 & \begin{tabular}[c]{@{}c@{}}MLP \\ ($4\times 200$)\end{tabular} \\
+Cheetah & 400000 & $10^5$ & 40 & 250 & 0.2 & 0.2 & 0.99 & \begin{tabular}[c]{@{}c@{}}MLP \\ ($4\times 200$)\end{tabular} \\
+Ant         & 300000 & $10^5$ & 20 & 250 & 0.2 & 0.2 & 0.99 & \begin{tabular}[c]{@{}c@{}}MLP \\ ($4\times 200$)
 \end{tabular} \\
-\bottomrule[2pt]
+\bottomrule
 \end{tabular}
 \caption{MBDP算法验证实验所使用的参数设定}
 \label{tab:hyperparameters}
-
 \end{table}
 
-本次实验所使用的代码运行在一台56核CPU、8卡GPU服务器上，具体设备配置如表~\ref{tab:computing-resources}所示。每项任务在计算机上的计算时间如表~\ref{tab:run-time}所示。
+为了能够进一步验证MBDP算法的实际效果，我们同样在强化学习的经典测试环境Mujoco仿真程序内进行验证实验。本次实验所使用的参数如表~\ref{tab:hyperparameters}所示进行设定。本次实验所使用的代码运行在一台56核CPU、8卡GPU服务器上，具体设备配置如表~\ref{tab:computing-resources}所示。每项任务在计算机上的计算时间如表~\ref{tab:run-time}所示。
 
-\begin{table}
+\begin{table}[ht]
 \centering
 \begin{tabular}{c|c|c}
 \toprule[2pt]
@@ -468,11 +451,11 @@ Intel E5-2680@2.4GHz (56 Cores) & Tesla P40 (24GB) $\times$ 8 & 256GB\\
 \begin{table}
 \centering
 \begin{tabular}{c|c|c|c|c}
-\toprule[2pt]
+\toprule
 Environment Name  & Hopper      & Walker2d    & HalfCheetah & Ant         \\
-\midrule[1pt]
+\midrule
 Time & $\approx 10$ hours & $\approx 20$ hours & $\approx 32$ hours & $\approx 48$ hours \\
-\bottomrule[2pt]
+\bottomrule
 \end{tabular}
 \caption{单次实验在各环境上的计算时间}
 \label{tab:run-time}
@@ -491,18 +474,22 @@ Time & $\approx 10$ hours & $\approx 20$ hours & $\approx 32$ hours & $\approx 4
 
 根据实验结果可以看出，本课题设计的改进算法在四种不同的任务环境中，均有着超越现有算法的表现。
 
-\begin{figure}
+\begin{figure}[t]
   \centering
   \includegraphics[width=\textwidth]{figures/performance.pdf}
-  \caption{各算法在不同任务下的训练曲线图。}
+  \caption{MBDP算法与基线算法在不同任务下的训练曲线图}
   \label{fig:performance}
 \end{figure}
 
 为了进一步验证改进算法的鲁棒性提升，对实验环境加入了不同程度的干扰，本课题在Hopper和HalfCheetah两个任务环境下，将物体的质量和摩擦系数均加以数值区间为$[0.5,1.5]$的干扰，同时以最新的MBPO算法作为对照标准进行对比实验。在各组干扰条件下均进行了一组实验，Hopper任务中每组实验训练$3\times 10^5$轮，HalfCheetah任务中每组任务训练$6\times 10^5$轮，实验结果以热力图的形式绘制成图\ref{fig:robustness-heatmap}，其中每一个方格表示一组干扰系数下训练相应轮数后的收益值。观察实验结果可以看出，两种算法尽管在中间的正常区域有着接近的收益，但在干扰较大的环境中，作为对照的MBPO算法并不能有效地学习出决策策略，相比之下本课题的算法则能够较好地处理受干扰较大的环境，这一实验验证了本课题中设计的双筛选机制能够有效提升算法鲁棒性的结论。
 
-\begin{figure}
+\begin{figure}[t]
   \centering
   \includegraphics[width=\textwidth]{figures/robustness-heatmap.pdf}
   \caption{算法鲁棒性对比实验。}
   \label{fig:robustness-heatmap}
 \end{figure}
+
+\section{本章小结}
+
+本章主要介绍了针对强化学习的策略安全性问题提出的基于模型集成的筛选规划算法（Model-Based Dropout Planning，MBDP）。本工作提出了集成模型筛选模块和模拟数据筛选模块，它们共同组合构成了MBDP算法。其中集成模型筛选模块在模型集成方法的基础上，通过计算集成模型中单个模型的预测精确度，对所有模型进行排序，然后按精确度从大到小进行优先级筛选，以少量鲁棒性下降的代价换取模型集成整体精确性的提升，从而实现对算法整体起到样本利用效率的提升；而模拟数据模块则是在基于模型的强化学习方法的基础框架下，对状态转移模型所生成的模拟样本计算收益反馈值，然后排序并按收益值从小到大进行优先级筛选，以少量样本效率下降的代价换取对风险状态的关注程度，提升了策略的稳定性，从而对算法整体起到鲁棒性的提升。集成模型筛选模块和模拟数据筛选模块在对抗的作用下起到了兼顾样本效率提升和鲁棒性提升的平衡效果，其所学习得到的决策策略在保障样本效率的前提下，通过更优秀的鲁棒性来实现决策策略安全性的提升。在本章中，还通过详细的理论分析过程论证了集成模型筛选模块在样本利用效率上的提升效果和模拟数据筛选模块在鲁棒性上的提升效果。并进一步通过模拟仿真实验验证了上述结论。

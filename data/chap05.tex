@@ -1,6 +1,6 @@
 % !TeX root = ../main.tex
 
-\chapter{真实决策控制任务中的样本效率及安全性提升}
+\chapter{真实决策控制任务中的样本效率及安全性提升}\label{chap:greenhouse}
 
 为了进一步验证本论文中所提出的DPER算法和MBDP算法在强化学习样本效率及安全性方面的提升效果，我们在更复杂的真实任务中进行了实验验证。
 
@@ -10,16 +10,16 @@
 
 \section{算法框架与设计}
 
-\begin{figure}
+\begin{figure}[t]
 \centering
 \includegraphics[width=\textwidth]{figures/framework.pdf}
 \caption{自动化温室决策学习算法框架}
 \label{fig:framework}
 \end{figure}
 
-我们设计了如图~\ref{fig:framework}所示的算法框架。这个用于温室自动化的模块化框架主要由温室环境、作物生长模拟器和一个带有DPER模块+MBDP模块的强化学习算法组成。核心部分是中央决策模块，它接收观测结果以决定下一步行动。强化学习算法则使用样本来不断优化策略。这三个部分在一个循环中交替进行，最终学到兼具样本效率和安全性的自动种植策略。算法的流程描述如算法~\ref{algo:acml-method}所示。
+我们设计了如图~\ref{fig:framework}~所示的算法框架。这个用于温室自动化的模块化框架主要由温室环境、作物生长模拟器和一个带有经验回放模块+模拟数据筛选模块的强化学习算法组成。核心部分是中央决策模块，它接收观测结果以决定下一步行动。强化学习算法则使用样本来不断优化策略。这三个部分在一个循环中交替进行，最终学到兼具样本效率和安全性的自动种植策略。算法的流程描述如算法~\ref{algo:acml-method}所示。
 
-\begin{algorithm}
+\begin{algorithm}[t]
 \caption{Dropout模块函数}
 \begin{algorithmic}
 \STATE 函数 Dropout($\mathcal{B}$, $p$):
@@ -33,7 +33,7 @@
 \end{algorithmic}
 \end{algorithm}
 
-\begin{algorithm}
+\begin{algorithm}[t]
 \caption{自动化温室决策学习算法}
 \begin{algorithmic}
 \STATE 初始化超参数、 策略 $\pi_\theta$、环境样本池 $\mathcal{D}_{\mathrm{real}}$、模拟样本池 $\mathcal{D}_{\mathrm{sim}}$\\
@@ -77,61 +77,68 @@
     \item 灌溉控制器：根据相关的农作物设定值，包括灌溉时间和浇水量，自动进行滴灌灌溉。
 \end{itemize}
 
-基于上述的传感器和控制器，我们总共可以收集到22种不同种类的观测变量，构成275维的观测状态空间；并有6种可用于控制温室的动作变量，构成52维的行为动作空间。这些空间的具体构成信息如表~\ref{tab:obs-space}所示。同时，我们还设计了净利润$=$收益$-$成本来作为策略决策效果的评价指标。其中收益的计算方式为收获果实的重量$\times$单位重量的价格，成本的计算方式为电力、热力、$CO_2$和水等资源的消耗量$\times$单位资源的价格。
+基于上述的传感器和控制器，我们总共可以收集到22种不同种类的观测变量，构成275维的观测状态空间；并有6种可用于控制温室的动作变量，构成52维的行为动作空间。温室可观测状态信息空间的具体构成信息如表~\ref{tab:obs-space}~所示，温室可执行动作空间的具体构成如表~\ref{tab:act-space}~所示。同时，我们还设计了净利润$=$收益$-$成本来作为策略决策效果的评价指标。其中收益的计算方式为收获果实的重量$\times$单位重量的价格，成本的计算方式为电力、热力、$CO_2$和水等资源的消耗量$\times$单位资源的价格。
 
-\begin{table}
+\begin{table}[htbp]
 \centering
-\caption{Observation Space (Above) and Action Sapce (Below)}
-\label{tab:obs-sapce}
-\begin{tabular}{cccc}
-\toprule[1pt]
-\textbf{Name}                                     & \textbf{Min} & \textbf{Max} & \textbf{Dim} \\
-\midrule[1pt]
-temperature setpoint                              & 13           & 32           & 24           \\
-CO$_2$ setpoint                                   & 400          & 1000         & 24           \\
-light-on time                                     & 0            & 24           & 1            \\
-light-off time                                    & 0            & 24           & 1            \\
-irrigation start time                             & 0            & 24           & 1            \\
-irrigation stop time                              & 0            & 24           & 1            \\
-outside solar radiation                           & 0            & 2000         & 24           \\
-outside temperature                               & -30          & 50           & 24           \\
-outside humidity                                  & 0            & 100          & 24           \\
-wind speed                                        & 0            & 25           & 24           \\
-virtual sky temperature                           & -20          & 20           & 24           \\
-greenhouse air temperature                        & -30          & 100          & 24           \\
-greenhouse air humidity                            & 0            & 100          & 24           \\
-greenhouse air CO$_2$ concentration               & 400          & 1000         & 24           \\
-light intensity just above crop                   & 0            & 2000         & 24           \\
-cumulative amount of irrigation per day           & 0            & 10           & 1            \\
-cumulative amount of drain per day                & 0            & 10           & 1            \\
-leaf area index                                   & 0            & 10           & 1            \\
-current number of growing fruits                  & 0            & 1000         & 1            \\
-cumulative harvest in terms of fruit fresh weight & 0            & 100          & 1            \\
-cumulative harvest in terms of fruit dry weight   & 0            & 100          & 1            \\
-planting days                                     & 0            & 365          & 1            \\
-\midrule[1pt]
-temperature setpoint          & 13           & 32           & 24           \\
-CO$_2$ setpoint               & 400          & 1000         & 24           \\
-light on time                 & 0            & 24           & 1            \\
-light off time                & 0            & 24           & 1            \\
-irrigation start time         & 0            & 24           & 1            \\
-irrigation stop time          & 0            & 24           & 1            \\
-\bottomrule[1pt]
+\caption{温室可观测状态信息空间}
+\begin{tabular}{cccc|cccc}
+\toprule
+\textbf{属性} & \textbf{最小值} & \textbf{最大值} & \textbf{维度} & \textbf{属性} & \textbf{最小值} & \textbf{最大值} & \textbf{维度}\\
+\midrule
+温度  & 13           & 32           & 24           & 种植天数                                     & 0            & 365          & 1            \\
+CO$_2$ 浓度                                   & 400          & 1000         & 24           & 温室温度                        & -30          & 100          & 24           \\
+光照时间                                     & 0            & 24           & 1            & 温室湿度                            & 0            & 100          & 24           \\
+无光照时间                                    & 0            & 24           & 1            & 温室 CO$_2$ 浓度               & 400          & 1000         & 24           \\
+灌溉开始时间                             & 0            & 24           & 1            & 光照密度                   & 0            & 2000         & 24           \\
+灌溉停止时间                              & 0            & 24           & 1            & 日累积灌溉量           & 0            & 10           & 1            \\
+室外辐射强度                           & 0            & 2000         & 24           & 日累积排水量                & 0            & 10           & 1            \\
+室外温度                               & -30          & 50           & 24           & 叶片区域                                   & 0            & 10           & 1            \\
+室外湿度                                  & 0            & 100          & 24           & 当前果实数量                  & 0            & 1000         & 1            \\
+风速                                        & 0            & 25           & 24           & 累积作物鲜重 & 0            & 100          & 1            \\
+虚拟天空温度                           & -20          & 20           & 24           & 累积作物干重   & 0            & 100          & 1            \\
+\bottomrule
 \end{tabular}
+\label{tab:obs-space}
 \end{table}
 
-\begin{figure}
+\begin{table}[htbp]
 \centering
-\includegraphics[width=\textwidth]{figures/train-test.pdf}
-\caption{自动温室决策学习算法的性能实验结果}
-\label{fig:results}
+\caption{温室可执行动作空间}
+\begin{tabular}{cccc}
+\toprule
+\textbf{属性}                                     & \textbf{最小值} & \textbf{最大值} & \textbf{维度} \\
+\midrule
+温度          & 13           & 32           & 24           \\
+CO$_2$ 浓度               & 400          & 1000         & 24           \\
+光照时间                 & 0            & 24           & 1            \\
+无光照时间                & 0            & 24           & 1            \\
+灌溉开始时间         & 0            & 24           & 1            \\
+灌溉停止时间          & 0            & 24           & 1            \\
+\bottomrule
+\end{tabular}
+\label{tab:act-space}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/acml-train.pdf}
+\caption{自动温室决策学习算法的学习曲线}
+\label{fig:acml-train}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/acml-test.pdf}
+\caption{自动温室决策学习算法的测试结果}
+\label{fig:acml-test}
 \end{figure}
 
 我们训练了两种不同版本的算法，一种是有样本筛选（$p=0.2$），一种是没有样本丢弃（$p=0$）。此外，我们还采用了广泛使用的SAC算法作为比较的基线。在预测长度为120天的设定下，这些算法以120天的总利润作为优化目标进行训练。
 
-如图\ref{fig:results}左侧所示，有样本筛选的算法比没有样本晒的算法收敛效果更好，方差更小。这主要是因为样本筛选模块会丢弃一部分反馈值过高的样本，避免了局部最优。同时，智能体更关注最坏情况下的状态，所以其方差更小。至于作为基线算法的SAC算法，它的表现远比我们的算法差，这是由于无模型方法的样本效率低，使得它很难在有限的样本中学习到足够的信息。
+如图~\ref{fig:acml-train}~左侧所示，有样本筛选的算法比没有样本晒的算法收敛效果更好，方差更小。这主要是因为样本筛选模块会丢弃一部分反馈值过高的样本，避免了局部最优。同时，智能体更关注最坏情况下的状态，所以其方差更小。至于作为基线算法的SAC算法，它的表现远比我们的算法差，这是由于无模型方法的样本效率低，使得它很难在有限的样本中学习到足够的信息。
 
-此外，我们在温室模拟器上评估了不同算法所学习到的种植策略，如图~\ref{fig:results}右侧所示，我们可以得出结论：
+此外，我们在温室模拟器上评估了不同算法所学习到的种植策略，~\ref{fig:acml-test}~所示，我们可以得出结论：
 
 \begin{enumerate}
     \item 在作物未生长的早期阶段，所有的种植策略均具有相似的性能；
@@ -156,7 +163,7 @@ irrigation stop time          & 0            & 24           & 1            \\
 \label{tab:exception-test}
 \begin{tabular}{c|cc|cc}
 \toprule[1pt]
-\multirow{2}{*}{\textbf{Parameter}}                                                 & \multicolumn{2}{c|}{\textbf{Fresh weight}}        & \multicolumn{2}{c}{\textbf{Retention rate}} \\ \cline{2-5} 
+\multirow{2}{*}{\textbf{参数}}                                                 & \multicolumn{2}{c|}{\textbf{作物鲜重}}        & \multicolumn{2}{c}{\textbf{存活率}} \\ \cline{2-5} 
                                                                                     & $p=1$ & $p=0.8$ & $p=1$ & $p=0.8$ \\
 \hline
 \begin{tabular}[c]{@{}c@{}}$\text{AirT}\in(35,40)$\\\end{tabular} & 38.51                & \textbf{45.24}   & 80.23\%              & \textbf{85.35\%} \\ \hline
@@ -168,3 +175,7 @@ irrigation stop time          & 0            & 24           & 1            \\
 \end{table}
 
 根据表~\ref{tab:exception-test}中的结果，我们发现，在异常条件下，带有样本筛选模块的算法具有更高的作物新鲜重量和存活率，这代表了更高的安全性，从而验证了样本筛选模块在算法安全性上的提升效果。
+
+\section{本章小结}
+
+本章主要介绍了将所提出的基于模型集成的筛选规划算法应用于真实温室自动化决策控制任务中，进一步验证所提出的算法在苛刻的真实应用场景中的安全性提升效果。本工作具体设计了温室自动化控制策略学习算法，并在仿真模拟器及真实环境中进行了验证实验，样本利用效率和抗环境干扰能力均得以验证，更加充分地证明了所设计的基于模型集成的筛选规划算法能够有效提升强化学习算法的样本利用效率和安全性。

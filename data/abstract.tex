@@ -3,37 +3,48 @@
 % 中英文摘要和关键字
 
 \begin{abstract}
-  论文的摘要是对论文研究内容和成果的高度概括。
-  摘要应对论文所研究的问题及其研究目的进行描述，对研究方法和过程进行简单介绍，对研究成果和所得结论进行概括。
-  摘要应具有独立性和自明性，其内容应包含与论文全文同等量的主要信息。
-  使读者即使不阅读全文，通过摘要就能了解论文的总体内容和主要成果。
 
-  论文摘要的书写应力求精确、简明。
-  切忌写成对论文书写内容进行提要的形式，尤其要避免“第 1 章……；第 2 章……；……”这种或类似的陈述方式。
+近年来，随着人工智能的不断发展，深度强化学习在各种自动化决策控制任务中取得了令人瞩目的成果。强化学习算法无需人工辅助，即可在与环境交互和反馈的过程中通过自我探索和学习，得到高效的智能决策策略。尽管强化学习算法能够以简单的通用模式学习决策策略，但在真实场景中，由于需要大量与环境和设备进行数据交互，样本成本高昂，导致强化学习算法的样本利用效率成为其应用于真实场景的关键瓶颈之一。此外，由于强化学习算法往往以平均收益为优化目标，尽管能在期望意义下取得整体的最大收益，但是在个别极端情况下可能产生较大损失，这也是强化学习算法学习策略产生不稳定性和不安全性的主要原因。安全性的缺乏导致强化学习算法也不被自动驾驶等一些高安全性要求的应用领域接受。
 
-  关键词是为了文献标引工作、用以表示全文主要内容信息的单词或术语。
-  关键词不超过 5 个，每个关键词中间用分号分隔。
+现有的强化学习算法已经开始尝试解决样本利用效率和安全性这两大关键瓶颈，优先经验回放算法通过改变回放样本分布，优先学习部分样本的做法提升了样本利用效率。基于模型的强化学习算法通过对环境建模产生模拟数据辅助学习，也能加快学习速度。但这些现有方法在提升样本利用效率的同时，会进一步恶化策略的稳定性问题，导致难以取舍。针对这些问题，本文开展了强化学习算法的样本利用效率和安全性研究，主要包括以下方面的创新点和贡献点：
+
+\begin{enumerate}
+    \item 提出了基于双层缓存的优先经验回放算法（Double-layer Prioritized Experience Replay，DPER），通过通过双层经验回放池的设计，以不同速率进行优先级经验回放，在同等的样本消耗量下，实现了对样本空间更大的经验回放覆盖率，有效提升了强化学习算法的样本利用效率；
+    \item 提出了基于模型集成的筛选规划算法（Model-Based Dropout Planning，MBDP），通过将集成模型筛选模块和模拟数据筛选模块相整合，以对抗的学习方式，设计了一个可以动态取舍样本利用效率和策略鲁棒性的算法框架，最终实现了在保证样本利用效率的前提下对所学决策策略安全性进行有效的提升；
+    \item 在真实温室环境中，根据提出的算法设计了自动化控制策略学习框架，在严苛的条件下对提出的算法进行了全面充分的验证，对于强化学习算法在真实复杂场景中的可应用性有重要意义。
+\end{enumerate}
+
+
+% 本章主要介绍了强化学习的基本概念，从基本的Markov性质及Markov决策过程出发，介绍了以Bellman方程为核心的动态规划求解方法，以及以梯度下降为核心的策略梯度优化方法等预备知识。并根据强化学习中样本效率问题及策略安全性问题的研究现状，介绍了经验样本回放方法，基于模型的强化学习和基于条件风险价值的筛选方法。
+
+% 本章主要介绍了针对强化学习的样本利用效率问题所提出了基于双层缓存的优先经验回放算法（Double-layer Prioritized Experience Replay，DPER）。DPER算法通过双层经验回放池的设计，在添加的第二层经验回放池中以更慢的速率全局空间的经验样本进行回放缓存，提高了经验回放样本在整体样本空间中的有效覆盖率，加速了策略学习速度，最终实现了算法样本利用效率的提升。在CliffWalking和Mujoco中的Hopper、Walker2d、HalfCheetah、Ant仿真环境下均验证了DPER算法在样本利用效率的提升效果。
+
+% 本章主要介绍了针对强化学习的策略安全性问题提出的基于模型集成的筛选规划算法（Model-Based Dropout Planning，MBDP）。本工作提出了集成模型筛选模块和模拟数据筛选模块，它们共同组合构成了MBDP算法。其中集成模型筛选模块在模型集成方法的基础上，通过计算集成模型中单个模型的预测精确度，对所有模型进行排序，然后按精确度从大到小进行优先级筛选，以少量鲁棒性下降的代价换取模型集成整体精确性的提升，从而实现对算法整体起到样本利用效率的提升；而模拟数据模块则是在基于模型的强化学习方法的基础框架下，对状态转移模型所生成的模拟样本计算收益反馈值，然后排序并按收益值从小到大进行优先级筛选，以少量样本效率下降的代价换取对风险状态的关注程度，提升了策略的稳定性，从而对算法整体起到鲁棒性的提升。集成模型筛选模块和模拟数据筛选模块在对抗的作用下起到了兼顾样本效率提升和鲁棒性提升的平衡效果，其所学习得到的决策策略在保障样本效率的前提下，通过更优秀的鲁棒性来实现决策策略安全性的提升。在本章中，还通过详细的理论分析过程论证了集成模型筛选模块在样本利用效率上的提升效果和模拟数据筛选模块在鲁棒性上的提升效果。并进一步通过模拟仿真实验验证了上述结论。
+
+% 本章主要介绍了将所提出的基于模型集成的筛选规划算法应用于真实温室自动化决策控制任务中，进一步验证所提出的算法在苛刻的真实应用场景中的安全性提升效果。本工作具体设计了温室自动化控制策略学习算法，并在仿真模拟器及真实环境中进行了验证实验，样本利用效率和抗环境干扰能力均得以验证，更加充分地证明了所设计的基于模型集成的筛选规划算法能够有效提升强化学习算法的样本利用效率和安全性。
 
   % 关键词用“英文逗号”分隔，输出时会自动处理为正确的分隔符
   \thusetup{
-    keywords = {关键词 1, 关键词 2, 关键词 3, 关键词 4, 关键词 5},
+    keywords = {强化学习, 样本利用效率, 策略安全性, 经验回放, 模型集成},
   }
 \end{abstract}
 
 \begin{abstract*}
-  An abstract of a dissertation is a summary and extraction of research work and contributions.
-  Included in an abstract should be description of research topic and research objective, brief introduction to methodology and research process, and summary of conclusion and contributions of the research.
-  An abstract should be characterized by independence and clarity and carry identical information with the dissertation.
-  It should be such that the general idea and major contributions of the dissertation are conveyed without reading the dissertation.
+In recent years, with the continuous development of artificial intelligence, deep reinforcement learning has achieved impressive results in various automated decision control tasks. Reinforcement learning algorithms can obtain efficient and intelligent policies by self-exploration and learning during interaction with the environment without human assistance. Although reinforcement learning algorithms can learn policies in simple generic patterns, the high cost of samples in real scenarios, which require a lot of data interactions with the environment and devices, leads to the sample efficiency of reinforcement learning algorithms as one of the key bottlenecks for their application in real scenarios. In addition, since reinforcement learning algorithms tend to optimize with the average gain as the goal, although they can achieve the overall maximum return in the expectation sense, they may generate large losses in individual extreme cases, which is the main reason for the instability and unsafety arising from the learned policies. The lack of safety has led to the fact that reinforcement learning algorithms are also not accepted in some high-safety demanding applications such as autonomous driving.
 
-  An abstract should be concise and to the point.
-  It is a misunderstanding to make an abstract an outline of the dissertation and words “the first chapter”, “the second chapter” and the like should be avoided in the abstract.
+Existing works have started to try to solve the two key bottlenecks of sample efficiency and safety. The priority experience replay (PER) algorithm improves the sample utilization efficiency by changing the replay distribution and prioritizing the samples. Model-based reinforcement learning algorithms can also speed up learning by modeling the environment to generate simulated data. However, these methods can further worsen the stability problem of the policy while improving the sample efficiency, leading to difficult trade-offs. To address these problems, this paper conducts a study on the sample efficiency and safety of reinforcement learning algorithms, which mainly includes the following innovative and contributing points.
 
-  Keywords are terms used in a dissertation for indexing, reflecting core information of the dissertation.
-  An abstract may contain a maximum of 5 keywords, with semi-colons used in between to separate one another.
+\begin{enumerate}
+    \item The Double-layer Prioritized Experience Replay (DPER) algorithm is proposed, which achieves a larger experience replay distribution coverage of the sample space with the same sample consumption by designing a double-layer experience replay buffer with different rates of prioritized experience replay.
+
+    \item The Model-Based Dropout Planning (MBDP) algorithm is proposed, which is designed as a framework that can dynamically trade-off sample efficiency and robustness. By integrating the model-dropout module and the rollout-dropout module in an adversarial manner, we can achieve effective enhancement of safety while ensuring sample efficiency.
+
+    \item In a real greenhouse environment, an automated control policy learning framework is designed based on the proposed MBDP algorithm. Under severe conditions, we fully validated the sample efficiency and safety of the proposed framework, which is important for strengthening the applicability of the reinforcement learning algorithm in real scenarios.
+\end{enumerate}
+
 
   % Use comma as separator when inputting
   \thusetup{
-    keywords* = {keyword 1, keyword 2, keyword 3, keyword 4, keyword 5},
+    keywords* = {Reinforcement Learning, Sample Efficiency, Policy Safety, Experience Replay, Model Ensemble},
   }
 \end{abstract*}
