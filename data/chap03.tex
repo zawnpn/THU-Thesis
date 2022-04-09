@@ -21,7 +21,9 @@
 \label{fig:algo-structure}
 \end{figure}
 
-在优先经验回放算法的基础上，本文设计了一个双层经验回放池。在原有的单层样本池基础上增加了第二层回放缓冲区。与通常的经验重放方法一样，它首先将观察到的样本存储在第一层经验回放池中，当第一层样本池填充满后，随机抽取一定比例的样本填入第二层回放缓冲区中。在这样的设计下，第二层的样本累积速度将会比第一层大幅减缓，也意味着第二层回放池中将会缓存更长时间的历史经验，对整体样本空间起到更好的覆盖效果。这样设计的动机是，当人类在从经验中学习时，并不会一位的按照固定速度从历史经验中进行回放学习，而是更高频地对短期经验进行快速回放、更低频地对长期经验进行慢速回放，从而既能实时更新最新的知识，也能更充分利用上较长时间的经验。
+经验回放算法中，回放样本池的设计是影响经验回放方法效果的一个重要因素。Zhang等人在论文\cite{zhang2017deeper}中提出，经验回放样本池的大小会对经验回放算法的效果产生显著影响，过大或过小的的样本池均可导致算法的效率大幅下降。其主要原因经验回放样本池中的历史经验一旦填满，则会开始丢弃旧的样本，这一特性限制了经验回放池中的样本分布对整体样本空间的覆盖率。考虑到强化学习对探索和利用机制的需求，如果样本池中的样本分布仅能覆盖实际样本分布中的一小部分，则很可能导致初期训练过拟合，不利于所学策略在真实环境中的决策效果。为了解决该问题，本文提出了基于双层缓存的优先经验回放算法，其双层经验回放池的设计目的便是要通过不同速率的多重经验回放来扩大回放池样本分布对整体分布的覆盖率。
+
+在优先经验回放算法的基础上，本文所设计的双层经验回放池是在原有的单层样本池基础上增加了第二层回放缓冲区。与通常的经验重放方法一样，它首先将观察到的样本存储在第一层经验回放池中，当第一层样本池填充满后，随机抽取一定比例的样本填入第二层回放缓冲区中。在这样的设计下，第二层的样本累积速度将会比第一层大幅减缓，也意味着第二层回放池中将会缓存更长时间的历史经验，对整体样本空间起到更好的覆盖效果。这样设计的动机是，当人类在从经验中学习时，并不会一位的按照固定速度从历史经验中进行回放学习，而是更高频地对短期经验进行快速回放、更低频地对长期经验进行慢速回放，从而既能实时更新最新的知识，也能更充分利用上较长时间的经验。
 
 在该样本池的设计下，我们对第一层和第二层的样本分别按照时序差分误差进行优先级排序，并将两层样本池中的样本取出进行混合回放学习，以实现不同速度的经验混合回放，从而生成更理想的优先经验回放样本分布。算法的结构示意图如图~\ref{fig:algo-structure}~所示。
 
@@ -30,13 +32,11 @@
 
 在本小节中，我们将介绍双层优先经验回放算法以及它如何帮助提高强化学习的样本效率。
 
-首先使用策略与环境交互得到环境数据$\mathcal{D}_{\text{env}}$，并根据$\mathcal{D}_{\text{env}}$训练得到环境模型。得到模型后，我们先生成一定量的样本$(s_t, a_t, s_{t+1}, r_{t+1})$填充到第一层经验回放池中，并按照时序差分误差进行优先级排序。当第一层回放池填充完毕后，我们抽取一定比例的样本存入第二层缓存池中，并对其也进行一次时序差分误差优先级排序。随后将两层回放池中的样本进行混合回放提供给智能体进行策略优化学习。
-
-策略优化更新后的策略将会重新与环境交互，生成新的交互样本用于改进环境模型的学习，而模型则会继续生成模拟数据填充加入双层样本回放池中。与基于模型的强化学习方法相结合，主要目的是为了能更快地生成样本，确保优先回放算法能更快地填充样本池并进行回放学习。
+DPER算法首先使用策略与环境交互得到环境数据$\mathcal{D}_{\text{env}}$，并根据$\mathcal{D}_{\text{env}}$训练得到环境模型。得到模型后，我们先生成一定量的样本$(s_t, a_t, s_{t+1}, r_{t+1})$填充到第一层经验回放池中，并按照时序差分误差进行优先级排序。当第一层回放池填充完毕后，我们抽取一定比例的样本存入第二层缓存池中，并对其也进行一次时序差分误差优先级排序。随后将两层回放池中的样本进行混合回放提供给智能体进行策略优化学习。策略优化更新后的策略将会重新与环境交互，生成新的交互样本用于改进环境模型的学习，而模型则会继续生成模拟数据填充加入双层样本回放池中。与基于模型的强化学习方法相结合，主要目的是为了能更快地生成样本，确保优先回放算法能更快地填充样本池并进行回放学习。
 
 此外，为了能够让双层回放的设计更加灵活，我们设计了一个动态控制第二次回放池大小的机制，通过参数$\alpha\in[0,1]$控制第二层回放池容量大小。具体的做法是，我们在每次循环中抽取$\alpha$百分比的样本用于填充进第二层回放池，剩余$(1-\alpha)$百分比的样本则用于常规经验学习。参数$\alpha$的设定既可以是一个固定的值，也可以是一个随时间衰退的变量。
 
-我们称上述所设计的算法为基于双层缓存的优先经验回放算法（Double-layer Prioritized Experience Replay，DPER）。流程的概述如算法~\ref{algo:dper-method}~所展示。
+我们称上述所设计的算法为基于双层缓存的优先经验回放算法（Double-layer Prioritized Experience Replay，DPER）。DPER算法流程的概述如算法~\ref{algo:dper-method}~所展示。
 
 \begin{algorithm}[t]
 \caption{基于双层缓存的优先经验回放算法}
@@ -83,6 +83,13 @@
 
 我们使用优先经验算法（PER）作为基线进行测试，并设计了一个双层回放池的优先经验回放算法。表~\ref{tab:cliff-stats}~的实验结果显示了在Cliff-Walking环境下使用单层或双层重放缓冲区的PER算法统计结果。这些指标代表了智能体落入悬崖区的概率以及平均收益。每次实验的运行由3组随机种子生成，每次实验需要2000步。统计结果表明，用双层经验重放法训练的策略落入悬崖区的次数较少，在评估过程中表现出更好的稳健性。可以看出，当使用双层回放池时，PER算法的表现比单层回放缓冲器的整体表现要好。
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/cliffwalking.pdf}
+\caption{Cliff-Walking实验结果曲线}
+\label{fig:cliff-dis}
+\end{figure}
+
 \begin{table}[ht]
 \centering
 \begin{tabular}{l|l|l|l|l|l} 
@@ -110,25 +117,9 @@
 \label{tab:cliff-stats}
 \end{table}
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=\textwidth]{figures/cliffwalking.pdf}
-\caption{Cliff-Walking实验结果曲线}
-\label{fig:cliff-dis}
-\end{figure}
-
 图~\ref{fig:cliff-dis}~展示了使用单层优先经验回放（红线）和双层优先经验回放（蓝线）在Cliff-Walking环境上训练时智能体距离悬崖边缘的距离。如图中训练曲线所示，原始PER算法中的智能体倾向于从远离悬崖的安全路径进行探索，直到它获得足够的信息来慢慢接近最优路径。相比之下，具有双层经验回放的PER算法能够更快地学习，并且能够更有把握地提前接近危险区域，从而更好地收敛到最优路径。可以看出使用了双层经验回放的算法可以更快的选择接近悬崖的最优路径，说明了DPER算法能够有效地提升学习速度，增加样本利用效率。
 
 \subsection{Mujoco环境实验设计与分析}
-
-在本次验证实验中，我们选用了OpenAI-Gym库中的经典Mujoco仿真环境\cite{todorov2012mujoco}用于验证，具体地，我们选择了Mujoco下的Hopper，Walker，HalfCheetah和Ant这四个环境，他们都是验证智能体在连续动作条件下决策性能的常用测试环境，这四个环境的具体测试任务如下描述。
-
-\begin{itemize}
-    \item \textbf{Hopper}: 控制一个单腿机器人尽可能快地向前行走。
-    \item \textbf{Walker2d}: 控制一个双腿机器人尽可能快地往前行走。
-    \item \textbf{HalfCheetah}: 控制一个双腿爬行机器人尽可能快地向前行走。
-    \item \textbf{Ant}: 控制一个四腿爬行机器人尽可能快地向前行走。
-\end{itemize}
 
 \begin{figure}[t]
     \centering
@@ -157,9 +148,25 @@
     \label{fig:env-figures}
 \end{figure}
 
+为了更细致地分析DPER算法的具体效果，我们选用了OpenAI-Gym库中的经典Mujoco仿真环境\cite{todorov2012mujoco}用于进一步的验证实验。具体地，我们选择了Mujoco下的Hopper，Walker，HalfCheetah和Ant这四个环境，他们都是验证智能体在连续动作条件下决策性能的常用测试环境，这四个环境的具体测试任务如下描述。
+
+\begin{itemize}
+    \item \textbf{Hopper}: 控制一个单腿机器人尽可能快地向前行走。
+    \item \textbf{Walker2d}: 控制一个双腿机器人尽可能快地往前行走。
+    \item \textbf{HalfCheetah}: 控制一个双腿爬行机器人尽可能快地向前行走。
+    \item \textbf{Ant}: 控制一个四腿爬行机器人尽可能快地向前行走。
+\end{itemize}
+
 在本实验中，我们关于样本效率对比了多个基线方法，将基于模型的强化学习算法中的代表算法MBPO\cite{janner2019trust}，以及它与PER \cite{schaul2016prioritized}的结合MBPO+PER进行了对比实验。在不同环境的实验中所使用的参数设定如表~\ref{tab:parameters}所示。
 
-\begin{table}[htbp]
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/dler.pdf}
+  \caption{DPER算法与其他基线算法在不同环境下的训练曲线}
+  \label{fig:dper-performance}
+\end{figure}
+
+\begin{table}[ht]
 \centering
 \begin{tabular}{c|c|c|c|c|c} 
 \toprule
@@ -174,26 +181,17 @@ HalfCheetah & 400    & 0.2      & $10^5$                                        
 Ant         & 300    & 0.2      & $10^5$                                              & 1000                                                         & 100                                                             \\
 \bottomrule
 \end{tabular}
-\caption{Mujoco实验参数设定}
+\caption{DPER算法验证实验所使用的参数设定}
 \label{tab:parameters}
 \end{table}
 
-具体而言，我们在Hopper环境运行了120轮循环，每轮循环包含1000步更新；相对应地，我们在Walker环境运行了300轮循环$\times$1000步；在HalfCheetah环境运行率400轮循环$\times$1000步；在Ant环境运行了300轮循环$\times$1000步。环境模型所使用的神经网络结构为$4\times 200$多层感知机（MLP）结构，这些模型在学习后均被用于预测未来100步的状态转移过程。
+具体而言，我们在Hopper环境运行了120轮循环，每轮循环包含1000步更新；相对应地，我们在Walker环境运行了300轮循环$\times$1000步；在HalfCheetah环境运行率400轮循环$\times$1000步；在Ant环境运行了300轮循环$\times$1000步。环境模型所使用的神经网络结构为$4\times 200$多层感知机（MLP）结构，这些模型在学习后均被用于预测未来100步的状态转移过程。所有实验中，DPER算法结构的第一层经验回放池大小均设为$10^5$，第二层经验回放池大小比例使用参数$\alpha=0.2$进行控制。在这些参数设定下，最终的训练曲线如图~\ref{fig:dper-performance}所示。所有曲线均由5组不同随机种子实验计算均值得到。根据图中结果可以看出，DPER算法在四种环境下的样本利用效率均超越了作为对比的MBPO算法和MBPO+PER算法，验证了基于双层缓存的优先经验回放算法在样本利用效率上的提升效果。
 
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=\textwidth]{figures/dler.pdf}
-  \caption{DPER算法与其他基线算法在不同环境下的训练曲线}
-  \label{fig:dper-performance}
-\end{figure}
-
-在这些参数设定下，最终的训练曲线如图~\ref{fig:dper-performance}所示。可以看出，DPER算法由于双层缓存的优化，取得了远超其他算法的性能。
-
-为了进一步确定DPER算法中参数$\alpha$的取值，我们还进行了一组参数实验，实验结果如表~\ref{tab:dper-ablation}所示。可以看出，当$\alpha$取值为0.2左右时将能取得最好的性能优化效果。
+为了进一步确定DPER算法中参数$\alpha$的取值，我们还进行了一组参数实验，实验结果如表~\ref{tab:dper-ablation}所示。在该表中，我们对$\alpha$在区间$[0,0.5]$上分别进行了5组随机数种子实验，并计算了平均返回值，该指标越高，说明该参数在相应环境下能取得最优效果。可以看出，当$\alpha$取值为0.2时，DPER算法在Hopper、Walker、Ant环境上取得了最优的平均返回值，当$\alpha$取值为0.3时，DPER算法在HalfCheetah环境上取得了最优的平均返回值。基于上述结果可知，当$\alpha\in[0.2,0.3]$时，DPER算法能达到最优性能。
 
 \begin{table}[ht]
 \centering
-\resizebox{\columnwidth}{!}{
+
 \begin{tabular}{c|c|c|c|c|c|c} 
 \toprule[2pt]
 $\alpha$                           & 0       & 0.1     & 0.2             & 0.3              & 0.4     & 0.5      \\ 
@@ -207,8 +205,8 @@ $R_\text{avg}(\text{HalfCheetah})$ & 15479.5 & 15630.1 & 15879.2         & \text
 $R_\text{avg}(\text{Ant})$         & 5975.2  & 6023.5  & \textbf{6249.8} & 6199.5           & 6047.1  & 5926.3   \\
 \bottomrule[2pt]
 \end{tabular}
-}
-\caption{Result of Ablation Study}
+
+\caption{DPER算法参数对比实验结果}
 \label{tab:dper-ablation}
 \end{table}
 

@@ -250,15 +250,6 @@ k^{*}=\underset{k}{\operatorname{argmin}}\left[\frac{\gamma^{k+1} \epsilon_{\pi}
   \label{fig:cvar}
 \end{figure}
 
-条件风险价值（CVaR）是一种用于计算最大风险的指标，如图\ref{fig:cvar}所示，首先定义风险价值（VaR）:
-\begin{equation}
-    \mathrm{VaR}_\alpha=\inf\left\{z\mid\mathrm{P}(Z\geq z)\leq 1-\alpha\right\}
-\end{equation}
-VaR的含义为在给定置信度$\alpha$下的最大可能损失，更进一步地，我们可定义条件风险价值（CVaR）：
-\begin{equation}
-    \mathrm{CVaR}_\alpha = \mathbb{E}\left[Z\mid Z\geq \mathrm{VaR}_\alpha\right]
-\end{equation}
-
 条件风险价值（CVaR）是一种用于计算最大风险的指标，如图\ref{fig:cvar}所示，首先需要定义风险价值（VaR）。记$Z$为随机变量，其累积分布函数为$F(z)=\mathrm{Pr}(Z<z)$，给定置信度$p \in (0,1)$，则关于 $Z$ 的$p$-置信度风险价值定义为$\mathrm{VaR}_p(Z)$：
 \begin{equation}
     \mathrm{VaR}_p(Z)=F^{-1}(p)\triangleq \inf\{z:F(z)\geq p\}.
