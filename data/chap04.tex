@@ -2,15 +2,15 @@
 
 \chapter{基于模型集成的筛选规划算法}\label{chap:mbdp}
 
-基于第~\ref{chap:background}~章中介绍的条件风险价值（CVaR）的思想，我们可以类似的在强化学习经验回放样本池中加入这一设计，将更低奖励反馈的样本加以更多的学习，而对过高奖励反馈的样本进行适当的筛选和丢弃，确保强化学习算法所学策略能够更稳定地处理高风险状态。
+基于第~\ref{chap:background}~章中介绍的条件风险价值（CVaR）的思想，本文在强化学习经验回放样本池中加入样本筛选机制的设计，将更低奖励反馈的样本加以更多的学习，而对过高奖励反馈的样本进行适当的筛选和丢弃，确保强化学习算法所学策略能够更稳定地处理高风险状态。
 
 \section{MBDP算法描述与设计}
 
-尽管在CVaR条件风险价值的思路下可以实现鲁棒性的提升，但是显然易见的是筛选丢弃样本的做法会损失一部分性能。为此，我们提出了基于模型集成的筛选规划算法（Model-Based Dropout Planning，MBDP），在做到提升算法鲁棒性的同时维持原有的算法性能。
+尽管在CVaR条件风险价值的思路下可以实现鲁棒性的提升，但是显然易见的是筛选丢弃样本的做法会损失一部分性能。为此，本文提出了基于模型集成的筛选规划算法（Model-Based Dropout Planning，MBDP），在做到提升算法鲁棒性的同时维持原有的算法性能。MBDP算法的整体框架如图\ref{fig:mbdp-structure}~所示，主要流程如算法~\ref{algo:our-method}~所示。
 
 \subsection{环境模型的集成学习与筛选}\label{sec:model-method}
 
-传统的不确定性环境建模和集成方法，虽然已经能够较好地模拟真实复杂环境并且捕捉到环境的不确定性 \cite{duan2007multi}，但并不能很好地控制模拟的精准程度，本论文在不确定性环境建模的基础上，结合传统集成学习的方法，设计了模型的集成和筛选机制。
+传统的不确定性环境建模和集成方法，虽然已经能够较好地模拟真实复杂环境并且捕捉到环境的不确定性 \cite{duan2007multi,zhang2021mbdp}，但并不能很好地控制模拟的精准程度，本论文在不确定性环境建模的基础上，结合传统集成学习的方法，设计了模型的集成和筛选机制。
 
 具体地，首先训练学习一组环境模型集合$\{\mathcal{M}_{\phi_1},\mathcal{M}_{\phi_2},\ldots\}$，集合中每一个环境模型都是一个概率神经网络，其输出$\mu_{\phi_i},\sigma_{\phi_i}$构成高斯分布$\mathcal{N}(\mu_{\phi_i}(s,a),\sigma_{\phi_i}(s,a))$，环境模型对于下一时刻的状态预测则服从该分布，即
 \begin{equation}
@@ -26,7 +26,7 @@
 
 \subsection{环境模型的数据生成与筛选}\label{sec:rollout-method}
 
-传统的基于模型的强化学习算法在得到环境模型后，往往是以期望收益为目标进行最大化优化，但是期望意义下的最优并不意味着在任意环境下都能有优秀的表现，在实际部署策略的时候，当面临一些受干扰的信息不足的状态，策略容易做出一些不合理甚至危险的决策，导致强化学习在实际部署中不稳定。为了解决这一问题，本论文提出了一种主动关注较坏情况的样本筛选机制，适当延缓强化学习训练速度，提升决策策略的鲁棒性。
+传统的基于模型的强化学习算法在得到环境模型后，往往是以期望收益为目标进行最大化优化，但是期望意义下的最优并不意味着在任意环境下都能有优秀的表现，在实际部署策略的时候，当面临一些受干扰的信息不足的状态，策略容易做出一些不合理甚至危险的决策，导致强化学习在实际部署中不稳定\cite{zhang2021mbdp}。为了解决这一问题，本论文提出了一种主动关注较坏情况的样本筛选机制，适当延缓强化学习训练速度，提升决策策略的鲁棒性。
 
 具体地，基于上一节得到的$\mathcal{M}^{\beta}$模型集合，在每一步都随机抽取一个模型$\mathcal{M}_{\phi_i}\in\mathcal{M}^\beta$，然后使用该模型进行下一时刻的状态预测，即$s_{t+1}\sim \mathcal{M}_{\phi_t}(s_t,a_t), \phi_t\in\Phi_\beta$，这样的一组状态和动作组成模拟样本$x=\left(s_{t+1},s_t,a_t\right)$，填入缓存池，然后相似地以一个概率参数$\alpha\in(0,1]$进行筛选，从中挑选出反馈奖励值相对较低的样本，得到一个筛选后的$\alpha$分位数样本集合
 \begin{equation}\label{def:batch-alpha-beta}
@@ -72,15 +72,15 @@
 \end{algorithm}
 
 
-由于在强化学习中模拟误差越小，算法的收敛性能则越好，观察公式(\ref{eq:MBDP-bound})中的误差上界$D_{\alpha,\beta}(\mathcal{M})$可知，强化学习的算法性能与参数$\alpha$成反比，与参数$\beta$成正比，又根据\ref{sec:model-method}节和\ref{sec:rollout-method}节的介绍可知，策略的鲁棒性显然与参数$\alpha$成正比，与参数$\beta$成反比，恰好与前面的作用效果相反。因此，本论文可以动态性地调整参数$\alpha,\beta$来取得算法性能和最终策略鲁棒性之间的平衡，从而得到不同属性的强化学习决策策略：
+由于在强化学习中模拟误差越小，算法的收敛性能则越好，观察式（\ref{eq:MBDP-bound}）中的误差上界$D_{\alpha,\beta}(\mathcal{M})$可知，强化学习的算法性能与参数$\alpha$成反比，与参数$\beta$成正比，又根据~\ref{sec:model-method}~节和~\ref{sec:rollout-method}~节的介绍可知，策略的鲁棒性显然与参数$\alpha$成正比，与参数$\beta$成反比，恰好与前面的作用效果相反。因此，本论文可以动态性地调整参数$\alpha,\beta$来取得算法性能和最终策略鲁棒性之间的平衡，从而得到不同属性的强化学习决策策略：
 
 \begin{itemize}
-    \item 平衡的决策策略：将参数$\alpha$和$\beta$调整为适中大小的概率值，适用于一般的普通环境；
-    \item 收益性能较高的决策策略：将参数$\alpha$调整为较小的概率值，$\beta$调整为较大的概率值，适用于相对稳定的环境；
-    \item 鲁棒性较好的决策策略：将参数$\alpha$调整为较大的概率值，$\beta$调整为较小的概率值，适用于干扰较大的环境。
+    \item \textbf{平衡的决策策略}：将参数$\alpha$和$\beta$调整为适中大小的概率值，适用于一般的普通环境；
+    \item \textbf{收益性能较高的决策策略}：将参数$\alpha$调整为较小的概率值，$\beta$调整为较大的概率值，适用于相对稳定的环境；
+    \item \textbf{鲁棒性较好的决策策略}：将参数$\alpha$调整为较大的概率值，$\beta$调整为较小的概率值，适用于干扰较大的环境。
 \end{itemize}
 
-基于~\ref{sec:model-method}~节和~\ref{sec:rollout-method}~节中提出的改进方案思路，将其整合进传统的基于模型的强化学习算法框架，得到改进的算法，算法整体框架如图\ref{fig:mbdp-structure}所示。MBDP算法首先通过与环境交互产生样本，用于训练概率模型并集成模拟，然后经过集成模型筛选模块生成模拟数据，再由模拟数据筛选模块生成处理后的模拟样本，最终将更新的模拟样本提供给策略优化公式对策略$\pi(a|s)$进行优化，并进行下一轮迭代。MBDP算法的主要流程如算法~\ref{algo:our-method}~所示。
+基于~\ref{sec:model-method}~节和~\ref{sec:rollout-method}~节中提出的集成模型筛选模块和模拟数据筛选模块，将其整合加入基于模型的强化学习算法框架，得到改进后的MBDP算法。MBDP算法首先与环境交互产生样本，用于训练概率模型并集成模拟，然后经过集成模型筛选模块生成模拟数据，再由模拟数据筛选模块生成处理后的模拟样本，最终将更新的模拟样本提供给策略优化公式对策略$\pi(a|s)$进行优化，并进行下一轮迭代。
 
 \section{算法理论分析}
 
@@ -88,18 +88,16 @@
 \begin{equation}\label{def:eta-s}
     {V}^{\pi,\mathcal{P}}(s) = \underset{\{a_0,s_1,\ldots\} \sim \pi,\mathcal{P}}{\mathbb{E}}\left[\sum_{t=0}^\infty\gamma^t r(s_t,a_t)\mid s_0=s\right].
 \end{equation}
-
 为便于分析，使用${V}^{\pi,\mathcal{P}}$表示基于随机初始状态的期望收益：
 \begin{equation}\label{def:eta-expectation}
     {V}^{\pi,\mathcal{P}} = \underset{s_0\in\mathcal{S}}{\mathbb{E}} \left[{V}^{\pi,\mathcal{P}}(s_0)\right].
 \end{equation}
-
-可定义在MBDP方法中缓存池里的模拟样本构成的期望收益为${V}^{\pi,\mathcal{M}_\phi}_\alpha$：
+此时可定义在MBDP方法中缓存池里的模拟样本构成的期望收益为${V}^{\pi,\mathcal{M}_\phi}_\alpha$：
 \begin{equation}\label{def:eta-beta}
     {V}^{\pi,\mathcal{M}_\phi}_\alpha=\mathbb{E}\left[{\sum}_{\{s_0,a_0,\ldots\} \sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right].
 \end{equation}
 
-本论文可以证明，加入样本筛选机制后的模拟期望收益，与真实环境中期望收益的差异为一个受参数$\beta$控制的上界，如定理 \ref{the:beta-drop-bound} 所述。
+本论文可以证明，加入样本筛选机制后的模拟期望收益，与真实环境中期望收益的差异为一个受参数$\beta$控制的上界，如定理~\ref{the:beta-drop-bound}~所述。
 
 \begin{theorem}\label{the:beta-drop-bound}
 
@@ -110,7 +108,7 @@
 \end{equation}
 \end{theorem}
 
-定理~\ref{the:beta-drop-bound}的重要意义是，即使筛选掉一批模拟样本，环境模型给出的模拟数据仍具备一定的可靠性，该可靠性由概率参数$\alpha$控制。该定理的证明如下。
+定理~\ref{the:beta-drop-bound}~的重要意义是，即使筛选掉一批模拟样本，环境模型给出的模拟数据仍具备一定的可靠性，该可靠性由概率参数$\alpha$控制。该定理的证明如下。
 
 \begin{proof}
 
@@ -124,7 +122,7 @@
     &\mathbb{E}\left[{\sum}_{s_0\in\mathcal{S},\{a_0,s_1,\ldots\} \sim\pi,\mathcal{M}_\phi}\left[\gamma^t r(s_t,a_t)\right]\right] \\
     &= (1-\alpha)\cdot \mathbb{E}\left[{\sum}_{\{s_0,a_0,\ldots\} \sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right] + \alpha\cdot\mathbb{E}\left[{\sum}_{\{s_0,a_0,\ldots\} \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]
 \end{align}
-根据定义 (\ref{def:eta-s})， (\ref{def:eta-expectation}) 和 (\ref{def:eta-beta})，我们可以得到
+根据式（\ref{def:eta-s}），（\ref{def:eta-expectation}）和（\ref{def:eta-beta}），可以得到
 \begin{align}
 {V}^{\pi,\mathcal{M}_\phi}_\alpha&=\mathbb{E}\left[{\sum}_{\{s_0,a_0,\ldots\} \sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\\
 &=\frac{1}{1-\alpha}\mathbb{E}\left[{\sum}_{s_0\in\mathcal{S},\{a_0,s_1,\ldots\} \sim\pi,\mathcal{M}_\phi}\left[\gamma^t r(s_t,a_t)\right]\right]-\notag\\
@@ -132,21 +130,21 @@
 &=\frac{1}{1-\alpha}\underset{s\in{\mathcal{S}}}{\mathbb{E}}\left[{V}^{\pi,\mathcal{M}_\phi}(s)\right]-\frac{\alpha}{1-\alpha}\mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\\
 &=\frac{1}{1-\alpha}{V}^{\pi,\mathcal{M}_\phi}-\frac{\alpha}{1-\alpha}\mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\label{proof:lem42p1}
 \end{align}
-其中 $\tau\triangleq\{s_0,a_0,\ldots\}$。根据定义 (\ref{def:batch-alpha-beta}) 以及  $\mathrm{R}_{m}=\underset{s\in\mathcal{S},a\in\mathcal{A}}{\sup}r(s,a)$，可得
+其中 $\tau\triangleq\{s_0,a_0,\ldots\}$。根据式 （\ref{def:batch-alpha-beta}）中的定义以及  $\mathrm{R}_{m}=\underset{s\in\mathcal{S},a\in\mathcal{A}}{\sup}r(s,a)$，可得
 \begin{align}
 \mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right] &\leq\int_{\tau\not\sim{\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}}\left[\sum_{t=0}^\infty\gamma^t \mathrm{R}_m\right]p(\tau)\mathrm{d}\tau\\
 &=\left[\sum_{t=0}^\infty\gamma^t\right]\mathrm{R}_m\int_{\tau\not\sim{\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}}p(\tau)\mathrm{d}\tau\\
 &= \frac{1}{1-\gamma}\mathrm{R}_m \int_{\tau\not\sim{\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}}p(\tau)\mathrm{d}\tau\\
 &=\frac{\alpha}{1-\gamma}\mathrm{R}_m
 \end{align}
-与之相似地，我们可以得到
+与之相似地可以求得
 \begin{align}
 V^{\pi,\mathcal{M}_\phi} = \mathbb{E}\left[{\sum}_{\tau \sim\mathcal{B}^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right] &\leq\int_{\tau \sim\mathcal{B}^{\pi,\mathcal{M}_\phi}}\left[\sum_{t=0}^\infty\gamma^t \mathrm{R}_m\right]p(\tau)\mathrm{d}\tau\\
 &=\left[\sum_{t=0}^\infty\gamma^t\right]\mathrm{R}_m\int_{\tau \sim\mathcal{B}^{\pi,\mathcal{M}_\phi}}p(\tau)\mathrm{d}\tau\\
 &= \frac{1}{1-\gamma}\mathrm{R}_m \int_{\tau \sim\mathcal{B}^{\pi,\mathcal{M}_\phi}}p(\tau)\mathrm{d}\tau\\
 &=\frac{1}{1-\gamma}\mathrm{R}_m
 \end{align}
-根据上述推导得到的两个不等式关系以及方程式 (\ref{proof:lem42p1})，可知
+根据上述推导得到的两个不等式关系以及式（\ref{proof:lem42p1}），可知
 \begin{align}
 |{V}_\alpha^{\pi, \mathcal{M}_{\phi}} - {V}^{\pi,\mathcal{M}_{\phi}}| &=  \left|\frac{\alpha}{1-\alpha}V^{\pi,\mathcal{M}_\phi}-\frac{\alpha}{1-\alpha}\mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\right| \\
 &\leq\frac{\alpha}{1-\alpha}\left(\left|V^{\pi,\mathcal{M}_\phi}\right|+\left|\mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\right|\right)\\
@@ -156,7 +154,7 @@ V^{\pi,\mathcal{M}_\phi} = \mathbb{E}\left[{\sum}_{\tau \sim\mathcal{B}^{\pi,\ma
 
 \end{proof}
 
-更进一步地，我们可以证明在同时加入模拟数据筛选模块和集成模型筛选模块后，所得到的策略期望价值仍然与真实环境下的策略收益存在一个可控的误差上界，并且该上界由筛选比例$\alpha$和$\beta$控制。
+更进一步地，可以证明在同时加入模拟数据筛选模块和集成模型筛选模块后，所得到的策略期望价值仍然与真实环境下的策略收益存在一个可控的误差上界，并且该上界由筛选比例$\alpha$和$\beta$控制。
 
 \begin{theorem}\label{the:MBDP-bound}
 
@@ -174,7 +172,7 @@ D_{\alpha,\beta}(\mathcal{M})\triangleq\frac{(1-\beta)\gamma K}{1-\gamma}\epsilo
 \end{equation}
 
 \end{theorem}
-为了证明上述定理，我们首先需要引入两个引理
+为了证明上述定理，首先需要引入两个引理
 
 \begin{lemma}\label{lem:proof-for-lem41}
 定义
@@ -187,7 +185,7 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 \end{equation}
 \end{lemma}
 
-引理 \ref{lem:proof-for-lem41} 改写自Luo等人在其论文\cite{luo2018algorithmic}中提出的引理4.3。在该引理的基础上，本文进一步推导出如下的引理 \ref{lem:mb-bound}。
+引理~\ref{lem:proof-for-lem41}~改写自Luo等\cite{luo2018algorithmic}在其论文中提出的引理4.3。在该引理的基础上，本文进一步推导出如下的引理~\ref{lem:mb-bound}~。
 
 \begin{lemma}\label{lem:mb-bound}
 设基于模型方法所能取得的价值函数 ${V}^{\pi,\mathcal{M}}$ 在状态空间$\mathcal{S}$上是Lipschitz连续的，并设$K$为 Lipschitz常数,。记$\mathcal{P}$表示真实环境的状态转移概率分布，则有如下的不等式关系：
@@ -202,20 +200,19 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 \label{theo:mb-bound}
 \end{lemma}
 
-在引理 \ref{lem:mb-bound}中， 我们假设了关于估计模型$\mathcal{M}$的期望收益${V}^{\pi,\mathcal{M}}(s)$ 关于任意范数距离$\|\cdot\|$都是Lipschitz连续的，即
+引理~\ref{lem:mb-bound}~中假设了关于估计模型$\mathcal{M}$的期望收益${V}^{\pi,\mathcal{M}}(s)$ 关于任意范数距离$\|\cdot\|$都是Lipschitz连续的，即
 \begin{equation}\label{assum:lip}
     \left|{V}^{\pi,\mathcal{M}}(s)-{V}^{\pi,\mathcal{M}}(s^{\prime})\right| \leq K\left\|s-s^{\prime}\right\|, \forall s, s^{\prime} \in \mathcal{S}
 \end{equation}
-其中$K\in \mathbb{R}^+$ 是一个Lipschitz常数。该假设的意义是相近的状态应该拥有相似的价值估计，对于绝大多数场景而言，这一假设显然都是成立的。引理~\ref{lem:mb-bound}的证明如下：
+其中$K\in \mathbb{R}^+$ 是一个Lipschitz常数。该假设的意义是相近的状态应该拥有相似的价值估计，对于绝大多数场景而言，这一假设显然都是成立的。引理~\ref{lem:mb-bound}~的证明如下：
 
 \begin{proof}
 
-根据$G^{\pi,\mathcal{M}}(s,a)$在公式（\ref{def:G-sa}）的定义，以及假设 ${V}^{\pi,\mathcal{M}}(s)$ 满足 Lipschitz 连续性（\ref{assum:lip}）, 我们可以得到
-
+根据$G^{\pi,\mathcal{M}}(s,a)$在式（\ref{def:G-sa}）中的定义，以及假设 ${V}^{\pi,\mathcal{M}}(s)$ 满足 Lipschitz 连续性（\ref{assum:lip}）, 可以得到
 \begin{equation}\label{eq:G-leq}
 |G^{\pi,\mathcal{M}}(s,a)|\leq K\|\mathcal{M}(s,a)-\mathcal{P}(s,a)\|
 \end{equation}
-可以证明
+因此
 \begin{align}
 \left|{V}^{\pi, \mathcal{M}}-{V}^{\pi, \mathcal{P}}\right| &= \frac{\gamma}{1-\gamma}\left|\underset{s,a\sim\pi,\mathcal{P}}{\mathbb{E}}\left[G^{\pi,\mathcal{M}}(s,a)\right]\right|\\
 &\leq \frac{\gamma}{1-\gamma}\underset{s,a\sim\pi,\mathcal{P}}{\mathbb{E}}\left[\left|G^{\pi,\mathcal{M}}(s,a)\right|\right]\\
@@ -230,7 +227,7 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 
 \begin{proof}
 
-根据定理~\ref{the:beta-drop-bound}和引理~\ref{lem:mb-bound}，首先可以证明
+根据定理~\ref{the:beta-drop-bound}~和引理~\ref{lem:mb-bound}~，首先可以证明
 
 \begin{align}
 \left|{V}_\alpha^{\pi, \mathcal{M}^\beta}-{V}^{\pi, \mathcal{P}}\right|&=\left|\int_{\Phi_\beta}{V}_\alpha^{\pi, \mathcal{M}_{\phi}}p(\phi)\mathrm{d}\phi-{V}^{\pi, \mathcal{P}}\right| \\
@@ -239,22 +236,22 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 &\leq\int_{\Phi_\beta}\left(\left|{V}^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right|+\left|{V}_\alpha^{\pi, \mathcal{M}_{\phi}} - {V}^{\pi,\mathcal{M}_{\phi}}\right|\right)p(\phi)\mathrm{d}\phi\\
 &= \int_{\Phi_\beta}\left|{V}^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right|p(\phi)\mathrm{d}\phi+\int_{\Phi_\beta}\left|{V}_\alpha^{\pi, \mathcal{M}_{\phi}} - {V}^{\pi,\mathcal{M}_{\phi}}\right|p(\phi)\mathrm{d}\phi \label{proof:theo43p1}
 \end{align}
-对于公式 (\ref{proof:theo43p1})的第一部分，记
+对于式 （\ref{proof:theo43p1}）的第一部分，记
 \begin{equation}
     \epsilon_{\mathcal{M}}\triangleq\underset{\phi\in\Phi}{\mathbb{E}}\left[\underset{s,a\sim \pi,\mathcal{P}}{\mathbb{E}}\left[\left\|\mathcal{M}_\phi(s, a)-\mathcal{P}(s, a)\right\|\right]\right]
 \end{equation}
-表示在模型$\mathcal{M}$和环境$\mathcal{P}$之间的一般性偏差。根据引理~\ref{lem:mb-bound}，我们可以得到
+表示在模型$\mathcal{M}$和环境$\mathcal{P}$之间的一般性偏差。根据引理~\ref{lem:mb-bound}~，可以求得
 \begin{align}
 \int_{\Phi_\beta}\left|{V}^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right|p(\phi)\mathrm{d}\phi &\leq \frac{\gamma K}{1-\gamma}\int_{\Phi_\beta}\underset{s,a\sim\pi,\mathcal{P}}{\mathbb{E}}\left[\left\|\mathcal{M}_\phi(s, a)-\mathcal{P}(s, a)\right\|\right]p(\phi)\mathrm{d}\phi\\
 &\leq \frac{\gamma K}{1-\gamma}\left|\epsilon_{\mathcal{M}}\right|\int_{\Phi_\beta}\left|p(\phi)\right|\mathrm{d}\phi\\
 &=\frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\mathcal{M}} \label{proof:theo43p2}
 \end{align}
-对于公式 (\ref{proof:theo43p1})的第二部分， 根据定理~\ref{the:beta-drop-bound}，我们可以证明
+对于式（\ref{proof:theo43p1}）的第二部分， 根据定理~\ref{the:beta-drop-bound}~可以证明
 \begin{align}
 \int_{\Phi_\beta}\left|{V}_\alpha^{\pi, \mathcal{M}_{\phi}} - {V}^{\pi,\mathcal{M}_{\phi}}\right|p(\phi)\mathrm{d}\phi&\leq \frac{\alpha(1+\alpha)}{(1-\alpha)(1-\gamma)}\mathrm{R}_m\int_{\Phi_\beta}p(\phi)\mathrm{d}\phi\\
 &=\frac{\alpha(1+\alpha)(1-\beta)}{(1-\alpha)(1-\gamma)}\mathrm{R}_m \label{proof:theo43p3}
 \end{align}
-将上述结果代回公式 (\ref{proof:theo43p1})，可以得到
+将上述结果代回式（\ref{proof:theo43p1}），可以得到
 \begin{align}
 \left|{V}_\alpha^{\pi, \mathcal{M}^\beta}-{V}^{\pi, \mathcal{P}}\right| &\leq \int_{\Phi_\beta}\left|{V}^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right|p(\phi)\mathrm{d}\phi+\int_{\Phi_\beta}\left|\epsilon_\alpha\right|p(\phi)\mathrm{d}\phi\\
 &\leq \frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\mathcal{M}}+\frac{\alpha(1+\alpha)(1-\beta)}{(1-\alpha)(1-\gamma)}\mathrm{R}_m\\
@@ -263,16 +260,16 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 
 \end{proof}
 
-根据定理~\ref{the:MBDP-bound}中的的误差上界$D_{\alpha,\beta}(\mathcal{M})$分析可以得出结论，由于$D_{\alpha,\beta}(\mathcal{M})$与$\alpha$成正比，与$\beta$成反比，易知当$\alpha$增大或$\beta$减小时，该误差上界会被扩大，导致算法训练过程中的准确性下降，使得算法需要更长时间才能收敛，最终致使算法的样本效率降低。反之，若$\alpha$减小或$\beta$增大时，算法的样本效率则能得以提升。
+根据定理~\ref{the:MBDP-bound}~中的的误差上界$D_{\alpha,\beta}(\mathcal{M})$分析可以得出结论，由于$D_{\alpha,\beta}(\mathcal{M})$与$\alpha$成正比，与$\beta$成反比，易知当$\alpha$增大或$\beta$减小时，该误差上界会被扩大，导致算法训练过程中的准确性下降，使得算法需要更长时间才能收敛，最终致使算法的样本效率降低。反之，若$\alpha$减小或$\beta$增大时，算法的样本效率则能得以提升。
 
-由于MBDP算法作为基于模型的强化学习算法，可将其更新规则表示为如下的公式：
+由于MBDP算法作为基于模型的强化学习算法，可将其更新规则表示为下式：
 \begin{equation}
     \pi_{k+1}, \mathcal{M}^\beta_{k+1}=\underset{\pi_k, \mathcal{M}_k^\beta}{\arg\max}\left[{V}^{\pi_k, \mathcal{M}_k^\beta}-D_{\alpha,\beta}(\mathcal{M}^\beta_k)\right],
 \label{eq:algo-equation}
 \end{equation}
-在该更新式的表达下，我们可以给出如下的定理
+在该更新式的表达下，本文给出如下的定理
 \begin{theorem}
-更新公式(\ref{eq:algo-equation})每一步所得的策略部署在真实环境$\mathcal{P}$中时，其期望收益将会关于步数呈现单调递增趋势，即
+根据式（\ref{eq:algo-equation}），当每一步所得的策略部署在真实环境$\mathcal{P}$中时，其期望收益将会关于步数呈现单调递增趋势，即
 \begin{equation}
     {V}^{\pi_{k+1}, \mathcal{P}}\geq {V}^{\pi_{k}, \mathcal{P}} + (\epsilon_{k+1} - \epsilon_\alpha) \triangleq {V}^{\pi_{k}, \mathcal{P}} + \eta,
 \end{equation}
@@ -289,11 +286,11 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 
 \begin{proof}
 
-根据定理~\ref{the:MBDP-bound}， $\left|{V}_\alpha^{\pi, \mathcal{M}^\beta}-{V}^{\pi, \mathcal{P}}\right|\leq D_{\alpha,\beta}(\mathcal{M})$，可得
+根据定理~\ref{the:MBDP-bound}~， $\left|{V}_\alpha^{\pi, \mathcal{M}^\beta}-{V}^{\pi, \mathcal{P}}\right|\leq D_{\alpha,\beta}(\mathcal{M})$，可得
 \begin{equation}\label{eq:prop44p1}
 {V}^{\pi_{k+1}, \mathcal{P}} \geq {V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta)
 \end{equation}
-由于不等式 (\ref{eq:prop44p1}) 的左边部分 ${V}^{\pi_{k+1}, \mathcal{P}}$ 比右边部分${V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta)$大，我们可以将该不等式改写为一个带有残差项$\epsilon_{k+1}$的等式：
+由于不等式（\ref{eq:prop44p1}）的左边部分 ${V}^{\pi_{k+1}, \mathcal{P}}$ 比右边部分${V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta)$大，可将该不等式改写为一个带有残差项$\epsilon_{k+1}$的等式：
 \begin{equation}\label{proof:prop44p1}
 {V}^{\pi_{k+1}, \mathcal{P}} = {V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta) + \epsilon_{k+1}
 \end{equation}
@@ -301,7 +298,7 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 \begin{equation}
 \epsilon_{k+1} \triangleq {V}^{\pi_{k+1}, \mathcal{P}} - \left[{V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta} - D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta)\right]
 \end{equation}
-根据更新规则 (\ref{eq:algo-equation})，可得
+根据更新规则（\ref{eq:algo-equation}），可得
 \begin{equation}\label{proof:prop44p2}
 {V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta) \geq {V}^{\pi_k,\mathcal{P}}-D_{\alpha,\beta}(\mathcal{P})
 \end{equation}
@@ -316,7 +313,7 @@ D_{\alpha,\beta}(\mathcal{P}) &= \frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\ma
 &=0+\frac{\alpha(1+\alpha)(1-\beta)}{(1-\alpha)(1-\gamma)}\mathrm{R}_m\\
 &=\epsilon_\alpha \label{proof:prop44p3}
 \end{align}
-根据公式（\ref{proof:prop44p1}），（\ref{proof:prop44p2}）和（\ref{proof:prop44p3}），
+根据式（\ref{proof:prop44p1}），（\ref{proof:prop44p2}）和（\ref{proof:prop44p3}），
 \begin{equation}
 {V}^{\pi_{k+1}, \mathcal{P}}\geq {V}^{\pi_{k}, \mathcal{P}} + \left[\epsilon_{k+1} - \epsilon_\alpha\right]
 \end{equation}
@@ -331,7 +328,7 @@ D_{\alpha,\beta}(\mathcal{P}) &= \frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\ma
 
 \end{proof}
 
-上述的分析论证了MBDP算法在样本效率上能够确保策略收益随训练步数单调递增，下面对MBDP算法的鲁棒性进行分析论证。首先我们将鲁棒性定义为算法在受干扰环境下的期望性能。考虑一个干扰矩阵$\hat{\mathcal{P}}=\mathcal{P}_t \circ \delta_t$，其中$\delta_t\in\mathbb{R}^{\mathcal{S}\times\mathcal{A}\times\mathcal{S}}$为可积概率干扰，“$\circ$”为Hadamard乘积记号。根据公式（\ref{eq:def-cvar}）中对$\mathrm{CVaR}(\cdot)$的定义，我们提出定理~\ref{the:robustness}~。
+上述的分析论证了MBDP算法在样本效率上能够确保策略收益随训练步数单调递增，下面对MBDP算法的鲁棒性进行分析论证。本文将鲁棒性定义为算法在受干扰环境下的期望性能。考虑一个干扰矩阵$\hat{\mathcal{P}}=\mathcal{P}_t \circ \delta_t$，其中$\delta_t\in\mathbb{R}^{\mathcal{S}\times\mathcal{A}\times\mathcal{S}}$为可积概率干扰，“$\circ$”为Hadamard乘积记号。根据式（\ref{eq:def-cvar}）中对$\mathrm{CVaR}(\cdot)$的定义，本文提出定理~\ref{the:robustness}~。
 
 \begin{theorem}\label{the:robustness}
 给定$\alpha\in(0,1)$以及干扰约束集合
@@ -345,14 +342,13 @@ D_{\alpha,\beta}(\mathcal{P}) &= \frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\ma
 \end{theorem}
 
 \begin{proof}
-根据 $\mathrm{CVaR}$ 的定义公式 (\ref{eq:def-cvar}) 和 $V_\alpha^{\pi,\mathcal{M}}$的定义公式
-(\ref{def:eta-beta})，我们将奖励反馈取负值用于表示损失。此时可以证明
+根据 $\mathrm{CVaR}$ 的定义式（\ref{eq:def-cvar}）和 $V_\alpha^{\pi,\mathcal{M}}$的定义式（\ref{def:eta-beta}），将奖励反馈取负值用于表示损失，此时可以证明
 \begin{align}
 \mathrm{CVaR}_\alpha(-V^{\pi,\mathcal{M}}) &= \mathbb{E}\left[-V^{\pi,\mathcal{M}}\mid -V^{\pi,\mathcal{M}} \geq \mathrm{VaR}_\alpha(-V^{\pi,\mathcal{M}})\right]\\
 &=\mathbb{E}\left[-{\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right]\mid -{\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right] \geq \mathrm{VaR}_\alpha(-V^{\pi,\mathcal{M}})\right]\\
 &=-\mathbb{E}\left[{\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right]\mid {\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right] \leq -\mathrm{VaR}_\alpha(-V^{\pi,\mathcal{M}})\right]
 \end{align}
-显然，上述公式中的条件 ${\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right] \leq -\mathrm{VaR}_\alpha(-V^{\pi,\mathcal{M}})$ 符合公式(\ref{def:batch-alpha-beta})的定义，即$\mathcal{B}_\alpha^{\pi,\mathcal{M}}$，因此，定理~\ref{the:robustness}的第一个等式得证。
+显然，上式中的条件 ${\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right] \leq -\mathrm{VaR}_\alpha(-V^{\pi,\mathcal{M}})$ 符合式（\ref{def:batch-alpha-beta}）的定义，即$\mathcal{B}_\alpha^{\pi,\mathcal{M}}$，因此，定理~\ref{the:robustness}~的第一个等式得证。
 \begin{equation}
 -\mathrm{CVaR}_\alpha(-V^{\pi,\mathcal{M}}) = \mathbb{E}\left[{\sum}_{\mathcal{B}_\alpha^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right]\right] = V_\alpha^{\pi,\mathcal{M}}
 \end{equation}
@@ -367,20 +363,29 @@ D_{\alpha,\beta}(\mathcal{P}) &= \frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\ma
 \begin{equation}\label{eq:delta-exp}
     \mathbb{E}\left[\delta(s_0,\ldots,s_T)\right] = \sum_{(s_0,\ldots,s_T)\in\mathcal{S}^{T+1}}\mathcal{P}(s_0,\ldots,s_T)\delta(s_0,\ldots,s_T) = 1
 \end{equation}
-根据$\Delta_\alpha$ 的定义 (\ref{eq:supp-perturbation})，可以证明定理~\ref{the:robustness}的第二个等式
+根据$\Delta_\alpha$ 的定义式（\ref{eq:supp-perturbation}），可以证明定理~\ref{the:robustness}~的第二个等式
 \begin{align}
     \inf\limits_{\Delta_\alpha}\mathbb{E}_{\hat{\mathcal{P}}}[V^{\pi,\mathcal{M}}] &= \inf\limits_{\delta(s_0,\ldots,s_T)\leq\frac{1}{\alpha}}\sum_{(s_0,\ldots,s_T)\in\mathcal{S}^{T+1}}\mathcal{P}(s_0,\ldots,s_T)\delta(s_0,\ldots,s_T)\cdot V^{\pi,\mathcal{M}}\\
     &=-\mathrm{CVaR}_\alpha(-V^{\pi,\mathcal{M}})\label{proof:cvar-eq}
 \end{align}
-上述的等式 (\ref{proof:cvar-eq}) 是由根据公式 (\ref{eq:delta-exp})和CVaR的表达性定理证明得到。
+上述的关系式（\ref{proof:cvar-eq}） 是根据式（\ref{eq:delta-exp}）和CVaR的表达性定理\cite{chow2015risk}证明得到。
 
 \end{proof}
 
 \section{Mujoco环境实验设计与分析}
 
+为了能够进一步验证MBDP算法的实际效果，本文在第~\ref{chap:dper}~章中介绍的强化学习经典测试环境Mujoco仿真程序内进行验证实验。本次实验所使用的参数如表~\ref{tab:hyperparameters}~所示进行设定。本次实验所使用的代码运行在一台56核CPU、8卡GPU服务器上，具体设备配置如表~\ref{tab:computing-resources}~所示。每项任务在计算机上的计算时间如表~\ref{tab:run-time}~所示。为了证明MBDP方法中上述所加入的模拟数据筛选模块和模型集成筛选模块作为改进方案的可行性，以及验证改进效果，本次实验主要目标为通过实验验证以下问题:
+
+\begin{itemize}
+    \item 改进后的算法在强化学习的标准测试任务上相比最新的算法提升如何？
+    \item 是否能达到~\ref{sec:rollout-method}~节中所描述的可以通过动态调整参数$\alpha,\beta$来取得不同决策策略的效果？
+\end{itemize}
+
+在四组不同的Mujoco任务上，与最新的MBPO \cite{janner2019trust}算法、STEVE \cite{buckman2018sample}算法、SLBO \cite{Luo2019AlgorithmicGuarantees}算法以及无模型的SAC \cite{haarnoja2018soft}算法进行对比实验。在本课题的算法中，使用了参数$\alpha=0.2, \beta=0.2$。对比实验结果如图~\ref{fig:performance}~所示，其中横轴为训练的步数，纵轴为相应步数对应的平均收益，每隔1000步统计一次当前累积收益并绘制在图中。实线表示不同随机种子实验（共5组随机数种子）的均值结果，阴影区域则表示这些实验的方差。由于SAC是无模型强化学习算法，相较基于模型的强化学习算法收敛速度较慢，因此只在图中画出部分训练曲线图，其最终收敛值通过虚线标注出来。根据实验结果可以看出，基于模型集成的筛选规划算法在四种不同的任务环境中，均有着超越现有算法的表现。
+
 \begin{table}[ht]
 \centering
-
+\caption{MBDP算法验证实验所使用的参数设定}
 \begin{tabular}{ccccccccc}
 \toprule
   \begin{tabular}[c]{@{}c@{}}环境\end{tabular} &
@@ -400,21 +405,12 @@ Ant         & 300000 & $10^5$ & 20 & 250 & 0.2 & 0.2 & 0.99 & \begin{tabular}[c]
 \end{tabular} \\
 \bottomrule
 \end{tabular}
-\caption{MBDP算法验证实验所使用的参数设定}
 \label{tab:hyperparameters}
 \end{table}
 
-为了能够进一步验证MBDP算法的实际效果，我们同样在第~\ref{chap:dper}~章中介绍的强化学习经典测试环境Mujoco仿真程序内进行验证实验。本次实验所使用的参数如表~\ref{tab:hyperparameters}所示进行设定。本次实验所使用的代码运行在一台56核CPU、8卡GPU服务器上，具体设备配置如表~\ref{tab:computing-resources}所示。每项任务在计算机上的计算时间如表~\ref{tab:run-time}所示。为了证明MBDP方法中上述所加入的模拟数据筛选模块和模型集成筛选模块作为改进方案的可行性，以及验证改进效果，本次实验主要目标为通过实验验证以下问题:
-
-\begin{itemize}
-    \item 改进后的算法在强化学习的标准测试任务上相比最新的算法提升如何？
-    \item 是否能达到\ref{sec:rollout-method}节中所描述的可以通过动态调整参数$\alpha,\beta$来取得不同决策策略的效果？
-\end{itemize}
-
-在四组不同的Mujoco任务上，与最新的MBPO \cite{janner2019trust}算法、STEVE \cite{buckman2018sample}算法、SLBO \cite{Luo2019AlgorithmicGuarantees}算法以及无模型的SAC \cite{haarnoja2018soft}算法进行对比实验。在本课题的算法中，使用了参数$\alpha=0.2, \beta=0.2$。对比实验结果如图~\ref{fig:performance}~所示，其中横轴为训练的步数，纵轴为相应步数对应的平均收益，每隔1000步统计一次当前累积收益并绘制在图中。实线表示不同随机种子实验（共5组随机数种子）的均值结果，阴影区域则表示这些实验的方差。由于SAC是无模型强化学习算法，相较基于模型的强化学习算法收敛速度较慢，因此只在图中画出部分训练曲线图，其最终收敛值通过虚线标注出来。根据实验结果可以看出，基于模型集成的筛选规划算法在四种不同的任务环境中，均有着超越现有算法的表现。
-
 \begin{table}[ht]
 \centering
+\caption{MBDP算法验证实验所使用的计算资源}
 \begin{tabular}{c|c|c}
 \toprule[2pt]
 CPU                      & GPU                         & RAM   \\
@@ -422,12 +418,12 @@ CPU                      & GPU                         & RAM   \\
 Intel E5-2680@2.4GHz (56 Cores) & Tesla P40 (24GB) $\times$ 8 & 256GB\\
 \bottomrule[2pt]
 \end{tabular}
-\caption{MBDP算法验证实验所使用的计算资源}
 \label{tab:computing-resources}
 \end{table}
 
 \begin{table}[ht]
 \centering
+\caption{MBDP算法在Mujoco环境单次实验在各环境上的计算时间}
 \begin{tabular}{c|c|c|c|c}
 \toprule
 Environment Name  & Hopper      & Walker2d    & HalfCheetah & Ant         \\
@@ -435,7 +431,6 @@ Environment Name  & Hopper      & Walker2d    & HalfCheetah & Ant         \\
 Time & $\approx 10$ hours & $\approx 20$ hours & $\approx 32$ hours & $\approx 48$ hours \\
 \bottomrule
 \end{tabular}
-\caption{MBDP算法在Mujoco环境单次实验在各环境上的计算时间}
 \label{tab:run-time}
 \end{table}
 
@@ -446,9 +441,9 @@ Time & $\approx 10$ hours & $\approx 20$ hours & $\approx 32$ hours & $\approx 4
   \label{fig:performance}
 \end{figure}
 
-为了验证MBDP算法对鲁棒性的提升效果，本文对实验环境加入了不同程度的干扰。具体地，在Hopper和HalfCheetah两个任务环境下，将物体的质量和摩擦系数均加以数值区间为$[0.5,1.5]$的干扰，同时以MBPO算法作为对照标准进行对比实验。在每种干扰条件下均进行验证实验，Hopper任务中每组实验训练$3\times 10^5$轮，HalfCheetah任务中每组任务训练$6\times 10^5$轮，实验结果以热力图的形式绘制成图\ref{fig:robustness-heatmap}，其中每一个方格表示一组干扰系数下训练相应轮数后的收益值。热力图中的颜色越接近红色代表该环境下的返回值越高，反之颜色越接近蓝色代表返回值越低。在该实验中，共设立了四种不同参数对应的算法，分别是$\alpha=0, \beta=0$的无筛选算法，$\alpha=0.2, \beta=0$的$\alpha$-筛选算法，$\alpha=0, \beta=0.2$的$\beta$-筛选算法以及$\alpha=0.2, \beta=0.2$的同时筛选算法。
+为了验证MBDP算法对鲁棒性的提升效果，本文对实验环境加入了不同程度的干扰。具体地，在Hopper和HalfCheetah两个任务环境下，将物体的质量和摩擦系数均加以数值区间为$[0.5,1.5]$的干扰，同时以MBPO算法作为对照标准进行对比实验。在每种干扰条件下均进行验证实验，Hopper任务中每组实验训练$3\times 10^5$轮，HalfCheetah任务中每组任务训练$6\times 10^5$轮，实验结果以热力图的形式绘制成图~\ref{fig:robustness-heatmap}~，其中每一个方格表示一组干扰系数下训练相应轮数后的收益值。热力图中的颜色越接近红色代表该环境下的返回值越高，反之颜色越接近蓝色代表返回值越低。在该实验中，共设立了四种不同参数对应的算法，分别是$\alpha=0, \beta=0$的无筛选算法，$\alpha=0.2, \beta=0$的$\alpha$-筛选算法，$\alpha=0, \beta=0.2$的$\beta$-筛选算法以及$\alpha=0.2, \beta=0.2$的同时筛选算法。
 
-显然可知，如果算法在整个热力图上的性能表现越一致，则说明该算法抗干扰能你更好，鲁棒性更高，反之若在热力图上的性能表现差异越大，则说明该算法更容易受环境干扰影响，鲁棒性更低。观察实验结果中的热力图，我们发现，仅使用模拟数据筛选模块的$\alpha$-筛选算法有着最好的鲁棒性提升，仅使用集成模型筛选模块的$\beta$-筛选算法则会带来鲁棒性下降的负面影响。而当将两种模块结合时，算法仍能维持较好的鲁棒性。这一实验验证了模拟数据筛选模块能够有效提升算法鲁棒性的结论，同时也证明了集成模型筛选模块和模拟数据筛选模块相结合后仍能有正向的鲁棒性提升效果。
+显然可知，如果算法在整个热力图上的性能表现越一致，则说明该算法抗干扰能你更好，鲁棒性更高，反之若在热力图上的性能表现差异越大，则说明该算法更容易受环境干扰影响，鲁棒性更低。观察实验结果中的热力图可知，仅使用模拟数据筛选模块的$\alpha$-筛选算法有着最好的鲁棒性提升，仅使用集成模型筛选模块的$\beta$-筛选算法则会带来鲁棒性下降的负面影响。而当将两种模块结合时，算法仍能维持较好的鲁棒性。这一实验验证了模拟数据筛选模块能够有效提升算法鲁棒性的结论，同时也证明了集成模型筛选模块和模拟数据筛选模块相结合后仍能有正向的鲁棒性提升效果。
 
 \begin{figure}[t]
   \centering
@@ -459,14 +454,14 @@ Time & $\approx 10$ hours & $\approx 20$ hours & $\approx 32$ hours & $\approx 4
 
 为了进一步验证参数$\alpha,\beta$和样本效率与鲁棒性的关系和敏感度，本文设计Hopper和HalfCheetah环境下的参数实验，实验分为两组：
 
-\begin{enumerate}
+\begin{itemize}
     \item 固定参数$\beta=0.2$，将参数$\alpha$在区间$[0,0.5]$中由小到大进行调整
     \item 固定参数$\alpha=0.2$，将参数$\beta$在区间$[0,0.5]$中由小到大进行调整
-\end{enumerate}
+\end{itemize}
 
-参数实验的结果如图~\ref{fig:hyper-performance}~所示。图中的第一行为Hopper环境下的实验结果，第二行为HalfCheetah环境下的实验结果。第1、2列为干扰环境实验组的实验结果，在干扰环境实验组中，我们针对每一组摩擦系数和质量系数构建了4种不同的干扰组合，具体地，将质量系数分别设为0.8和1.2，将摩擦系数分别设为0.8和1.2，总共组成$2\times 2=4$种干扰环境。在4个不同的干扰环境下分别进行策略学习，最终所能得到的平均返回值代表算法在受干扰环境中的综合评价指标，该指标越高，说明相应的参数$\alpha,\beta$能使得算法拥有更好的抗干扰性，也即鲁棒性。为了公平比较，我们在Hopper环境下统一训练120000步，在HalfCheetah环境下统一训练400000步。第3、4列为算法在标准环境（摩擦系数和质量系数均为1.0）下所能取得的返回值。同样的，我们在Hopper环境下统一训练120000步，在HalfCheetah环境下统一训练400000步。该项指标可用于评估不同参数下算法的样本利用效率。为了消除随机性的影响，每组实验均由10次随机种子实验组成，并将10次结果统计为箱线图。
+参数实验的结果如图~\ref{fig:hyper-performance}~所示。图中的第一行为Hopper环境下的实验结果，第二行为HalfCheetah环境下的实验结果。第1、2列为干扰环境实验组的实验结果，在干扰环境实验组中，本文针对每一组摩擦系数和质量系数构建了4种不同的干扰组合，具体地，将质量系数分别设为0.8和1.2，将摩擦系数分别设为0.8和1.2，总共组成$2\times 2=4$种干扰环境。在4个不同的干扰环境下分别进行策略学习，最终所能得到的平均返回值代表算法在受干扰环境中的综合评价指标，该指标越高，说明相应的参数$\alpha,\beta$能使得算法拥有更好的抗干扰性，也即鲁棒性。为了公平比较，本文在Hopper环境下统一训练120000步，在HalfCheetah环境下统一训练400000步。第3、4列为算法在标准环境（摩擦系数和质量系数均为1.0）下所能取得的返回值。同样的，本文在Hopper环境下统一训练120000步，在HalfCheetah环境下统一训练400000步。该项指标可用于评估不同参数下算法的样本利用效率。为了消除随机性的影响，每组实验均由10次随机种子实验组成，并将10次结果统计为箱线图。
 
-观察实验结果，显然可以得出结论，样本利用效率与参数$\alpha$呈现负相关趋势，与参数$\beta$呈现正相关趋势；鲁棒性与参数$\alpha$呈现正相关趋势，与参数$\beta$呈现负相关趋势。这也验证了~\ref{sec:mbdp-description}~节中所提出的MBDP算法与样本利用效率和鲁棒性的关系。此外，我们在实验结果图中用水平虚线画出了不使用任何筛选模块的基线算法（$\alpha=\beta=0$）性能，可以看出当$\alpha\in[0.1,0.2],\beta\in[0.1,0.2]$时，MBDP算法能同时得到样本利用效率和鲁棒性的提升。
+观察实验结果，显然可以得出结论，样本利用效率与参数$\alpha$呈现负相关趋势，与参数$\beta$呈现正相关趋势；鲁棒性与参数$\alpha$呈现正相关趋势，与参数$\beta$呈现负相关趋势。这也验证了~\ref{sec:mbdp-description}~节中所提出的MBDP算法与样本利用效率和鲁棒性的关系。此外，本文在实验结果图中用水平虚线画出了不使用任何筛选模块的基线算法（$\alpha=\beta=0$）性能，可以看出当$\alpha\in[0.1,0.2],\beta\in[0.1,0.2]$时，MBDP算法能同时得到样本利用效率和鲁棒性的提升。
 
 \begin{figure}[t]
   \centering

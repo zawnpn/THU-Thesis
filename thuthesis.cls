@@ -23,7 +23,7 @@
 %% 
 \NeedsTeXFormat{LaTeX2e}[2017/04/15]
 \ProvidesClass{thuthesis}
-[2021/05/31 7.2.3 Tsinghua University Thesis Template]
+[2022/03/19 7.2.4 Tsinghua University Thesis Template]
 \newcommand\thu@error[1]{%
   \ClassError{thuthesis}{#1}{}%
 }
@@ -56,7 +56,7 @@
 }
 \hyphenation{Thu-Thesis}
 \def\thuthesis{ThuThesis}
-\def\version{7.2.3}
+\def\version{7.2.4}
 \RequirePackage{kvdefinekeys}
 \RequirePackage{kvsetkeys}
 \RequirePackage{kvoptions}
@@ -324,6 +324,13 @@
 \RequirePackage[labelformat=simple]{subcaption}
 \RequirePackage{pdfpages}
 \includepdfset{fitpaper=true}
+\AtEndPreamble{
+  \ifx\tikzifexternalizing\@undefined\else
+    \tikzifexternalizing{
+      \renewcommand*\includepdf[2][]{}
+    }{}
+  \fi
+}
 \RequirePackage[shortlabels]{enumitem}
 \RequirePackage{environ}
 \ifthu@raggedbottom
@@ -345,9 +352,11 @@
   }
 }
 \AtEndOfPackageFile*{natbib}{
-  \@ifpackageloaded{apacite}{}{
-    \RequirePackage{bibunits}
-  }
+  \ifthu@degree@bachelor
+    \@ifpackageloaded{apacite}{}{
+      \RequirePackage{bibunits}
+    }
+  \fi
 }
 \newcommand\thu@package@conflict[2]{%
   \AtEndOfPackageFile*{#1}{%
@@ -384,11 +393,6 @@
 \thu@package@conflict{newtxmath}{amssymb}
 \thu@package@conflict{newtxmath}{unicode-math}
 \thu@package@conflict{newtxmath}{upgreek}
-\AtBeginOfPackageFile*{mathtools}{
-  \@ifpackageloaded{unicode-math}{
-    \thu@error{The "mathtools" package should be loaded before setting "math-font"}
-  }{}
-}%
 \AtBeginOfPackageFile*{amsthm}{
   \@ifpackageloaded{newtxmath}{
     \thu@error{The "amsthm" package should be loaded before setting "newtxmath"}
@@ -406,8 +410,8 @@
       bottom     = 3.2cm,
       left       = 3.2cm,
       right      = 3cm,
-      headheight = 0.5cm,
-      headsep    = 1.8cm,
+      headheight = 1.9cm,
+      headsep    = 1.9cm,
       footskip   = 1.45cm,
     }%
     \ifthu@output@print
@@ -423,7 +427,7 @@
   \else
     \geometry{
       margin     = 3cm,
-      headheight = 0.5cm,
+      headheight = 2.7cm,
       headsep    = 0.3cm,
       footskip   = 0.8cm,
     }%
@@ -1162,10 +1166,12 @@
   \thu@set@stix@names
   \setmathfont{\thu@font@name@stix@math}[
     Extension    = .otf,
+    Scale        = MatchLowercase,
     StylisticSet = \thu@xits@integral@stylistic@set,
   ]%
   \setmathfont{\thu@font@name@stix@math}[
     Extension    = .otf,
+    Scale        = MatchLowercase,
     StylisticSet = 1,
     range        = {scr,bfscr},
   ]%
@@ -1362,6 +1368,7 @@
   \@mainmattertrue
   \pagenumbering{arabic}%
 }
+\newif\ifthu@backmatter
 \renewcommand\backmatter{%
   \if@openright
     \cleardoublepage
@@ -1369,6 +1376,7 @@
     \clearpage
   \fi
   \@mainmatterfalse
+  \thu@backmattertrue
   \thusetup{toc-depth = 0}%
 }
 \pagestyle{fancy}
@@ -1467,7 +1475,7 @@
 \setlist{nosep}
 \newcommand\thu@circled[1]{%
   \ifnum#1 >10\relax
-    \thu@error{%
+    \thu@warning{%
       Too many footnotes in this page.
       Keep footnote less than 10%
     }%
@@ -1540,8 +1548,8 @@
     }%
   }%
 }
-\def\fps@figure{h}
-\def\fps@table{h}
+\def\fps@figure{htbp}
+\def\fps@table{htbp}
 \setlength{\floatsep}{12\p@ \@plus 2\p@ \@minus 2\p@}
 \setlength{\textfloatsep}{12\p@ \@plus 2\p@ \@minus 2\p@}
 \setlength{\intextsep}{12\p@ \@plus 2\p@ \@minus 2\p@}
@@ -2674,41 +2682,43 @@
   \end{center}%
 }
 \def\thu@committee@name{学位论文指导小组、公开评阅人和答辩委员会名单}
-\newenvironment{committee}[1][]{%
-  \cleardoublepage
-  \let\thu@committee@file\@empty
-  \kv@define@key{thu@committee}{name}{\let\thu@committee@name\kv@value}%
-  \kv@define@key{thu@committee}{file}{\let\thu@committee@file\kv@value}%
-  \kv@set@family@handler{thu@committee}{%
-    \ifx\kv@value\relax
-      \let\thu@committee@file\kv@key
-    \else
-      \kv@handled@false
-    \fi
-  }%
-  \kvsetkeys{thu@committee}{#1}%
-  \ifx\thu@committee@file\@empty
-    \begingroup
-      \ifthu@main@language@english
-        \ctexset{chapter/format=\centering\sffamily\fontsize{16bp}{20bp}\selectfont}
+\NewEnviron{committee}[1][]{%
+  \ifthu@degree@graduate
+    \cleardoublepage
+    \let\thu@committee@file\@empty
+    \kv@define@key{thu@committee}{name}{\let\thu@committee@name\kv@value}%
+    \kv@define@key{thu@committee}{file}{\let\thu@committee@file\kv@value}%
+    \kv@set@family@handler{thu@committee}{%
+      \ifx\kv@value\relax
+        \let\thu@committee@file\kv@key
+      \else
+        \kv@handled@false
       \fi
-      \thu@chapter*[]{\thu@committee@name}%
-    \endgroup
-  \else
-    \thu@pdfbookmark{0}{\thu@committee@name}%
-    \includepdf{\thu@committee@file}%
+    }%
+    \kvsetkeys{thu@committee}{#1}%
+    \ifx\thu@committee@file\@empty
+      \begingroup
+        \ifthu@main@language@english
+          \ctexset{chapter/format=\centering\sffamily\fontsize{16bp}{20bp}\selectfont}
+        \fi
+        \thu@chapter*[]{\thu@committee@name}%
+      \endgroup
+    \else
+      \thu@pdfbookmark{0}{\thu@committee@name}%
+      \includepdf{\thu@committee@file}%
+    \fi
+    \thispagestyle{empty}%
+    \ctexset{
+      section = {
+        format    += {\centering},
+        numbering = false,
+        afterindent = false,
+      },
+    }%
+    \thusetup{language=chinese}
+    \BODY\clearpage
+    \thu@reset@main@language
   \fi
-  \thispagestyle{empty}%
-  \ctexset{
-    section = {
-      format    += {\centering},
-      numbering = false,
-      afterindent = false,
-    },
-  }%
-  \thusetup{language=chinese}
-}{%
-  \thu@reset@main@language
 }
 \newcommand\copyrightpage[1][]{%
   \cleardoublepage
@@ -2803,7 +2813,7 @@
     \centering
     签\quad 名：\thu@underline[6em]{}%
     导师签名：\thu@underline[6em]{}%
-    日\quad 期\thu@underline[6em]{}%
+    日\quad 期：\thu@underline[6em]{}%
     \par
   \endgroup
 }
@@ -2954,8 +2964,10 @@
     Use "page-style" option of \protect\statement command instead%
   }%
 }
+\newif\ifthu@statement@exists
 \newcommand\statement[1][]{%
   \@mainmatterfalse
+  \thu@statement@existstrue
   \ifthu@degree@bachelor
     \cleardoublepage
     \def\thu@statement@name{声\hspace{2em}明}%
@@ -3031,6 +3043,11 @@
     {\thu@chapter*{\csname list#1name\endcsname}\@starttoc{\csname ext@#1\endcsname}}%
 }
 \renewcommand\listoffigures{%
+  \ifthu@degree@bachelor
+    \ifthu@backmatter\else
+      \thu@warning{The list of figures should be placed in back matter}%
+    \fi
+  \fi
   \thu@listof{figure}%
 }
 \titlecontents{figure}
@@ -3038,6 +3055,11 @@
   {\contentspush{\figurename~\thecontentslabel\quad}}{}
   {\nobreak\thu@leaders\nobreak\hfil\thecontentspage}
 \renewcommand\listoftables{%
+  \ifthu@degree@bachelor
+    \ifthu@backmatter\else
+      \thu@warning{The list of tables should be placed in back matter}%
+    \fi
+  \fi
   \thu@listof{table}%
 }
 \titlecontents{table}
@@ -3045,11 +3067,17 @@
   {\contentspush{\tablename~\thecontentslabel\quad}}{}
   {\thu@leaders\thecontentspage}
 \newcommand\listoffiguresandtables{%
-  \thu@chapter*{\thu@list@figure@table@name}%
-  \@starttoc{lof}%
-  \par
-  \null\par
-  \@starttoc{lot}%
+  \ifthu@degree@bachelor
+    \thu@warning{The list of figures and tables are for graduates only}%
+    \listoffigures
+    \listoftables
+  \else
+    \thu@chapter*{\thu@list@figure@table@name}%
+    \@starttoc{lof}%
+    \par
+    \null\par
+    \@starttoc{lot}%
+  \fi
 }
 \def\ext@equation{loe}
 \def\equcaption#1{%
@@ -3405,6 +3433,11 @@
 }
 \g@addto@macro\appendix{%
   \@mainmattertrue
+  \ifthu@degree@bachelor
+    \ifthu@statement@exists\else
+      \thu@warning{The appendices should be placed after statement}%
+    \fi
+  \fi
 }
 \thu@define@key{
   toc-depth = {
@@ -3447,6 +3480,7 @@
     \thu@print@contents{survey}{l}{1}{2}{}%
     \vskip 20bp%
   }%
+  \let\appendix\thu@appendix@appendix
   \renewcommand\bibname{参考文献}%
   \let\bibsection\thu@appendix@bibsection
   \renewcommand\@bibunitname{\jobname-survey}%
@@ -3483,6 +3517,7 @@
     \thu@print@contents{translation}{l}{1}{2}{}%
     \vskip 20bp%
   }%
+  \let\appendix\thu@appendix@appendix
   \def\bibsection{%
     \begingroup
       \ctexset{section/numbering=false}%
@@ -3529,6 +3564,12 @@
     {\contentspush{\thecontentslabel\quad}}{}
     {\thu@leaders\thecontentspage}%
 }
+\newcommand\thu@appendix@appendix{%
+  \def\theHsection{\Hy@AlphNoErr{section}}%
+  \setcounter{section}{0}%
+  \setcounter{subsection}{0}%
+  \renewcommand\thesection{\thechapter.\@Alph\c@section}%
+}%
 \newcommand\thu@appendix@bibsection{%
   \par
   \vskip 20bp%
@@ -3592,24 +3633,29 @@
 \newcommand\publicationskip{%
   \thu@error{The "\protect\publicationskip" is obsolete. Do not use it}%
 }
-\newenvironment{comments}[1][]{%
-  \@mainmatterfalse
-  \kv@define@key{thu@comments}{name}{\let\thu@comments@name\kv@value}%
-  \kv@set@family@handler{thu@comments}{%
-    \ifx\kv@value\relax
-      \let\thu@comments@name\kv@key
-    \else
-      \kv@handled@false
-    \fi
-  }%
-  \kvsetkeys{thu@comments}{#1}%
-  \chapter{\thu@comments@name}%
-}{%
+\NewEnviron{comments}[1][]{%
+  \ifthu@degree@graduate
+    \@mainmatterfalse
+    \kv@define@key{thu@comments}{name}{\let\thu@comments@name\kv@value}%
+    \kv@set@family@handler{thu@comments}{%
+      \ifx\kv@value\relax
+        \let\thu@comments@name\kv@key
+      \else
+        \kv@handled@false
+      \fi
+    }%
+    \kvsetkeys{thu@comments}{#1}%
+    \chapter{\thu@comments@name}%
+    \BODY\clearpage
+  \fi
 }
-\newenvironment{resolution}{%
-  \@mainmatterfalse
-  \chapter{\thu@resolution@name}%
-}{}
+\NewEnviron{resolution}{%
+  \ifthu@degree@graduate
+    \@mainmatterfalse
+    \chapter{\thu@resolution@name}%
+    \BODY\clearpage
+  \fi
+}
 \newcommand{\record}[1]{%
   \let\thu@record@file\@empty
   \kv@define@key{thu@record}{file}{\let\thu@record@file\kv@value}%
@@ -3655,6 +3701,7 @@
   \pdfstringdefDisableCommands{
     \let\\\relax
     \let\quad\relax
+    \let\qquad\relax
     \let\hspace\@gobble
   }%
   \@ifpackagelater{hyperref}{2019/04/27}{}{%
@@ -3689,17 +3736,18 @@
       pdfcreator={\thuthesis-v\version}}
   }%
 }
+\AtEndOfPackageFile*{mathtools}{
+  \@ifpackageloaded{unicode-math}{
+    \let\underbrace\LaTeXunderbrace
+    \let\overbrace\LaTeXoverbrace
+  }{}
+}
 \AtEndOfPackageFile*{nomencl}{
   \let\nomname\thu@denotation@name
   \def\thenomenclature{\begin{denotation}[\nom@tempdim]}
   \def\endthenomenclature{\end{denotation}}
 }
 \AtEndOfPackageFile*{siunitx}{%
-  \sisetup{
-    group-minimum-digits = 4,
-    separate-uncertainty = true,
-    inter-unit-product   = \ensuremath{{}\cdot{}},
-  }
   \newcommand\thu@set@siunitx@language{%
     \ifthu@language@chinese
       \sisetup{
