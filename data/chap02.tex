@@ -4,7 +4,11 @@
 
 本章主要介绍强化学习的基本概念和一些预备理论知识，包括在Markov性质下使用动态规划求解最优决策策略的方法、使用策略梯度优化的方法近似求解最优策略的方法。随后介绍了使用经验样本回放和基于模型的强化学习的方法来提升样本利用效率、使用基于条件风险价值的样本筛选方法来提升策略鲁棒性。
 
-\section{强化学习的基本概念}
+\section{预备知识}
+
+本节主要从强化学习的基本概念出发，对强化学习的问题背景和核心理念进行介绍，随后介绍强化学习算法中动态规划这一核心方法，最后介绍能衍生至深度强化学习算法的策略梯度优化方法。
+
+\subsection{强化学习的基本概念}
 
 强化学习算法的核心框架由智能体和环境信息构成，其中智能体指决策策略及其可观测的信息，环境则是全部信息空间中除智能体以外的所有信息。在强化学习中，环境和智能体都会随时间改变而变化，本文将指定时间下的环境信息集合定义为状态，而状态组成的集合定义为状态空间 $\mathcal S$ ，而在具体时刻 $t$ 的状态记作 $S_t\in \mathcal S$ 。本文将智能体在给定状态下能执行的决策行为定义为动作，将所有可执行的动作定义为动作空间$\mathcal{A}$，一般将给定状态 $S$ 和具体时刻 $t$下的动作记为 $A_t\in\mathcal{A}(s)$ 。
 
@@ -17,8 +21,6 @@ G_t = R_{t+1}+R_{t+2}+R_{t+3}+\cdots+R_T.
 G_t = R_{t+1}+\gamma R_{t+2}+\gamma^2 R_{t+3}+\cdots = \sum_{k=0}^{\infty}\gamma^kR_{t+k+1}.
 \end{equation}
 其中 $\gamma(0\leq \gamma < 1)$ 为削减系数，通过不断累积削减系数，返回值将表现为更加关注近期时刻的奖励反馈。
-
-\subsection{Markov性质与Markov决策过程}
 
 在强化学习中，一般假定环境满足Markov性质，并将智能体与满足Markov性质的环境进行交互决策的过程称为Markov决策过程（Markov Decision Process，MDP）\cite{white1963dynamic,ross1996stochastic}。在MDP中，每一时刻的状态仅与前一时刻状态相关，与其他任意时刻的状态均无关。Markov性质的定义如下
 \begin{definition}
@@ -38,14 +40,14 @@ G_t = R_{t+1}+\gamma R_{t+2}+\gamma^2 R_{t+3}+\cdots = \sum_{k=0}^{\infty}\gamma
 \end{definition}
 
 满足Markov性质的决策过程即为Markov决策过程\cite{sutton2018reinforcement,white1963dynamic}。在满Markov 决策过程中，智能体进行决策时仅需考虑当前时刻的状态信息集合。
-此时可定义状态价值函数和动作价值函数：
-\begin{equation}
+此时可如式（\ref{eq:vbell}）和（\ref{eq:qbell}）定义状态价值函数和动作价值函数：
+\begin{equation}\label{eq:vbell}
 \begin{aligned}
     v_{\pi}(s)&=\mathbb{E}_{\pi}\left[G_t|S_t=s\right]\\
     &=\mathbb{E}_{\pi}\left[\sum_{k=0}^{\infty}\gamma^kR_{t+k+1}\mid S_t=s\right], \forall s \in \mathcal{S},
 \end{aligned}
 \end{equation}
-\begin{equation}
+\begin{equation}\label{eq:qbell}
 \begin{aligned}
     q_{\pi}(s,a)&=\mathbb{E}_{\pi}\left[G_t|S_t=s,A_t=a\right]\\
     &=\mathbb{E}_{\pi}\left[\sum_{k=0}^{\infty}\gamma^kR_{t+k+1}\mid S_t=s,A_t=a\right].
@@ -79,7 +81,7 @@ q_*(s,a) = \sum_{s',r}p(s',r \mid s,a)\left[r+\gamma \max_{a'}q_*(s',a') \right]
     \pi'(s) &= \mathop{\arg\max}\limits_a q_\pi(s, a)\\&=\mathop{\arg\max}\limits_a \mathbb{E}[R_{t+1}+\gamma v_\pi(S_{t+1})\mid S_t=s,A_t=a] \\&= \mathop{\arg\max}\limits_a \sum_{s',r} p(s', r | s, a) (r + \gamma v_\pi(s')).
     \end{aligned}
 \end{equation}
-具体的更新流程如算法~\ref{algo:bellman-update}~所示。将上述的值估计求解算法与策略优化算法相结合，进行循环优化，记策略价值函数估计（Policy Evaluation）为E步骤，由符号“$\xrightarrow{E}$”表示；记策略优化（Policy Improvement）为I步骤，由符号“$\xrightarrow{I}$”表示。则上述的循环优化过程可以表示为如下所示的流程
+具体的更新流程如算法~\ref{algo:bellman-update}~所示。将上述的值估计求解算法与策略优化算法相结合，进行循环优化，记策略价值函数估计（Policy Evaluation）为E步骤，由符号“$\xrightarrow{E}$”表示；记策略优化（Policy Improvement）为I步骤，由符号“$\xrightarrow{I}$”表示。则上述的循环优化过程可以表示为如下所示的流程：
 \begin{equation}
 \pi_0 \xrightarrow{E} v_{\pi_0} \xrightarrow{I}\pi_1 \xrightarrow{E} v_{\pi_1} \xrightarrow{I} \pi_2 \xrightarrow{E} \cdots \xrightarrow{I} \pi_* \xrightarrow{E} v_*
 \end{equation}
@@ -102,13 +104,13 @@ q_*(s,a) = \sum_{s',r}p(s',r \mid s,a)\left[r+\gamma \max_{a'}q_*(s',a') \right]
         \STATE $\Delta = \max(\Delta,|v-V(s)|)$
         \ENDFOR
         \UNTIL{ $\Delta<\delta$}
-        \STATE
         \STATE $\pi(s)=\arg\max_a\sum_{s',r}p(s',r|s,a)[r+\gamma V(s')]$
+        \STATE
         \STATE 输出最优策略 $\pi$
     \end{algorithmic}
 \end{algorithm}
 
-\section{策略梯度优化}
+\subsection{策略梯度优化}
 
 尽管动态规划算法能够理论上学习得到足够接近最优的策略，但直接求解的方法并没有充分发挥深度机器学习的优势。通过将策略函数进行参数化的做法，可以有效地结合机器学习中的梯度上升/下降算法，更为高效地进行策略学习\cite{sutton1999policy,grondman2012survey}。首先定义参数化的策略函数：
 \begin{equation}
@@ -134,7 +136,11 @@ q_*(s,a) = \sum_{s',r}p(s',r \mid s,a)\left[r+\gamma \max_{a'}q_*(s',a') \right]
 \end{equation}
 这一定理的意义在于，当直接优化目标函数的梯度$\nabla J(\boldsymbol{\theta})$时，等价于在对策略函数$\pi$进行梯度优化，即目标函数$J(\boldsymbol{\theta})$的最优化参数$\boldsymbol{\theta_*}$也是策略函数$\pi(a|s,\theta)$的最优化参数。在该定理的保证下，可以直接对$J(\boldsymbol{\theta})$进行简单的梯度优化即可求得最优策略。
 
-\section{经验样本回放}
+\section{研究现状}
+
+本节针对强化学习方法的样本利用效率问题和策略安全性问题，介绍现有工作中解决这两个问题的研究现状，主要分为经验样本回放方法、基于模型的强化学习方法和基于条件风险价值的样本筛选方法。
+
+\subsection{经验样本回放方法}
 
 在Q-Learning、SARSA\cite{watkins1992q,sutton2018reinforcement}等传统的强化学习算法中，环境交互样本往往只被使用一次后便被立即放弃，不再重复使用。由于其中的一些样本含有较高的学习价值，训练一次后即将其丢弃的做法会大幅降低强化学习算法的样本利用效率，基于这一考虑，经验回放的方法得以提出\cite{lin1992self}，它将重要的经验存储在样本池中加以多次重复利用，使得智能体能够学习过去的经验\cite{adam2011experience}。不过经验回放也存在一些局限性，如果智能体所处环境随时间会发生变化，过去的经验将完全无助于实时的策略学习。DQN算法\cite{mnih2013playing}将经验回放机制与强化学习算法相结合，对经验回放的样本进行了随机化处理，保证了样本的独立同分布特性，从而解决了经验回放的局限性，在保证算法稳定性的同时做到了样本效率的提升。
 
@@ -146,7 +152,7 @@ q_*(s,a) = \sum_{s',r}p(s',r \mid s,a)\left[r+\gamma \max_{a'}q_*(s',a') \right]
 
 经验回放样本池的另一大研究重点是其中的样本分布。考虑到强化学习对探索和利用机制的需求，如果样本池中的样本分布仅能覆盖实际样本分布中的一小部分，则很可能导致初期训练过拟合、策略脱离实际分布、灾难性遗忘等诸多问题。为了解决上述提到的问题，相关工作提出，更高频地使用最新样本即时覆盖旧样本，可以更有效地帮助智能体学习探索经验\cite{de2015importance}。此外，还可以根据样本的时序差分误差、状态空间占比、奖励反馈等多个指标进行优先级覆盖，从而得以从不同角度解决经验回放方法的缺点。
 
-\section{基于模型的强化学习方法}
+\subsection{基于模型的强化学习方法}
 
 尽管经验回放方法通过重复利用现有样本的做法使得强化学习算法的样本利用效率得到一定程度的提升，但其提升程度并不明显，基于模型的强化学习算法是另一类可以有效提升样本利用效率的方法，它通过监督学习训练得到环境状态转移模型，以该模型为模拟环境大量且快速地生成模拟样本，能够辅助策略学习，加速策略的收敛。基于模型的强化学习基本框架最早在1991年提出 \cite{Sutton1991DynaReacting}，它实际上是一种模块化的思路，可以应用到现有的各种无模型强化学习算法算法中（例如PPO ，TD3，SAC等算法 \cite{schulman2017proximal,haarnoja2018soft}），旨在高效地利用经验数据，提高学习效率以及数据利用效率。如图~\ref{fig:dyna-structure}~所示，基于模型的强化学习算法融合了规化、决策和学习的方法，在传统的无模型强化学习方法基础上，增加了模型学习$\longrightarrow$模型$\longrightarrow$模型规划的过程 \cite{lin1992self}，通过经验数据学习得到一个环境的模型，然后使用模型进行模拟规划，生成模拟数据辅助强化学习进行策略优化更新。
 
@@ -159,7 +165,7 @@ q_*(s,a) = \sum_{s',r}p(s',r \mid s,a)\left[r+\gamma \max_{a'}q_*(s',a') \right]
 
 在学得模型之后，最朴素的用法是，将真实环境数据和模型生成数据 混合，然后执行无模型强化学习方法，这一过程可视作一种数据增广的优化方法。更进阶的模型用法是，使用模型进行上下文信息的辅助计算，从而更高效地加速强化学习算法的收敛速度。虽然基于模型的强化学习算法有较好的样本效率，但由于模型误差，存在一定的局限性，使用这样有偏差的环境模型去预测，进而会带来更大的误差 \cite{zambaldi2018deep}。
 
-在PILCO方法中 \cite{deisenroth2011pilco}，通过学习环境的概率模型，从而实现对复杂环境的不确定性捕捉。具体地，PILCO方法使用了高斯过程回归模型来对环境建模 \cite{quinonero2005unifying}，得到环境的概率模型$\mathcal{N}\left(\mu(s_t,a_t), \sigma(s_t,a_t)\right)$，基于这一概率模型，得到期望收益
+在PILCO方法中 \cite{deisenroth2011pilco}，通过学习环境的概率模型，从而实现对复杂环境的不确定性捕捉。具体地，PILCO方法使用了高斯过程回归模型来对环境建模 \cite{quinonero2005unifying}，得到环境的概率模型$\mathcal{N}\left(\mu(s_t,a_t), \sigma(s_t,a_t)\right)$，基于这一概率模型，得到期望收益：
 \begin{equation}
     J^\pi=\mathbb{E}_{s_{t+1}}\left[V\left(s_{t+1}\right)\right]=\int V\left(s_{t+1}\right) \mathcal{N}\left(s_{t+1} \mid \mu_t, \sigma_t\right) \mathrm{d} s_{t+1}.
 \end{equation}
@@ -187,7 +193,7 @@ k^{*}=\underset{k}{\operatorname{argmin}}\left[\frac{\gamma^{k+1} \epsilon_{\pi}
 \end{equation}
 此时，模型的误差始终可以保障在一个误差界限以内，从而在可控的预测误差下，能够最大程度地进行充分的模型规划预测。
 
-\section{基于条件风险价值的样本筛选方法}
+\subsection{基于条件风险价值的样本筛选方法}
 
 虽然目前基于模型的强化学习方法已经取得了显著的样本利用效率提升效果，但它们通常只适合于其所训练的环境，当部署到存在扰动的真实环境时，性能往往会急剧下降。
 

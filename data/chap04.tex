@@ -12,7 +12,7 @@
 
 传统的不确定性环境建模和集成方法，虽然已经能够较好地模拟真实复杂环境并且捕捉到环境的不确定性 \cite{duan2007multi,zhang2021mbdp}，但并不能很好地控制模拟的精准程度，本论文在不确定性环境建模的基础上，结合传统集成学习的方法，设计了模型的集成和筛选机制。
 
-具体地，首先训练学习一组环境模型集合$\{\mathcal{M}_{\phi_1},\mathcal{M}_{\phi_2},\ldots\}$，集合中每一个环境模型都是一个概率神经网络，其输出$\mu_{\phi_i},\sigma_{\phi_i}$构成高斯分布$\mathcal{N}(\mu_{\phi_i}(s,a),\sigma_{\phi_i}(s,a))$，环境模型对于下一时刻的状态预测则服从该分布，即
+具体地，首先训练学习一组环境模型集合$\{\mathcal{M}_{\phi_1},\mathcal{M}_{\phi_2},\ldots\}$，集合中每一个环境模型都是一个概率神经网络，其输出$\mu_{\phi_i},\sigma_{\phi_i}$构成高斯分布$\mathcal{N}(\mu_{\phi_i}(s,a),\sigma_{\phi_i}(s,a))$，环境模型对于下一时刻的状态预测则服从该分布，即：
 \begin{equation}
     s^\prime \sim \mathcal{M}_{\phi_i}(s,a) = \mathcal{N}(\mu_{\phi_i}(s,a),\sigma_{\phi_i}(s,a)).
 \end{equation}
@@ -111,7 +111,7 @@
 定理~\ref{the:beta-drop-bound}~的重要意义是，即使筛选掉一批模拟样本，环境模型给出的模拟数据仍具备一定的可靠性，该可靠性由概率参数$\alpha$控制。该定理的证明如下。
 
 \begin{proof}
-将期望计算按不同属性的集合进行拆分，得到
+将期望计算按不同属性的集合进行拆分，得到式（\ref{eq:E=1-a+a}）：
 % 首先可以证明，对于两个不相交的集合 $A$ 和 $B$（$A\cap B=\varnothing$） ，满足下式
 % \begin{equation}
 %     \mathbb{E}_{A\cup B}\left[X\right] = \mathbb{E}_A\left[X\right]\cdot\mathrm{P}\left(A\right)+\mathbb{E}_B\left[X\right]\cdot\mathrm{P}\left(B\right)
@@ -123,7 +123,7 @@
     &(1-\alpha)\cdot \mathbb{E}\left[{\sum}_{\{s_0,a_0,\ldots\} \sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]+\alpha\cdot\mathbb{E}\left[{\sum}_{\{s_0,a_0,\ldots\} \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right].
 \end{aligned}\label{eq:E=1-a+a}
 \end{equation}
-根据式（\ref{def:eta-s}），（\ref{def:eta-expectation}），（\ref{def:eta-beta}）和（\ref{eq:E=1-a+a}）可知
+根据式（\ref{def:eta-s}），式（\ref{def:eta-expectation}），式（\ref{def:eta-beta}）和式（\ref{eq:E=1-a+a}）可推导式（\ref{proof:lem42p1}）：
 \begin{equation}
 \begin{aligned}
 {V}^{\pi,\mathcal{M}_\phi}_\alpha&=\mathbb{E}\left[{\sum}_{\{s_0,a_0,\ldots\} \sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\\
@@ -133,8 +133,8 @@
 &=\frac{1}{1-\alpha}{V}^{\pi,\mathcal{M}_\phi}-\frac{\alpha}{1-\alpha}\mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right],\label{proof:lem42p1}
 \end{aligned}
 \end{equation}
-其中 $\tau\triangleq\{s_0,a_0,\ldots\}$。根据式 （\ref{def:batch-alpha-beta}）中的定义以及  $\mathrm{R}_{m}=\underset{s\in\mathcal{S},a\in\mathcal{A}}{\sup}r(s,a)$，可得
-\begin{equation}
+其中 $\tau\triangleq\{s_0,a_0,\ldots\}$。根据式 （\ref{def:batch-alpha-beta}）中的定义以及  $\mathrm{R}_{m}=\underset{s\in\mathcal{S},a\in\mathcal{A}}{\sup}r(s,a)$，可推导求得关系式（\ref{eq410}）：
+\begin{equation}\label{eq410}
 \begin{aligned}
 \mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right] &\leq\int_{\tau\not\sim{\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}}\left[\sum_{t=0}^\infty\gamma^t \mathrm{R}_m\right]p(\tau)\mathrm{d}\tau\\
 &=\left[\sum_{t=0}^\infty\gamma^t\right]\mathrm{R}_m\int_{\tau\not\sim{\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}}p(\tau)\mathrm{d}\tau\\
@@ -142,8 +142,8 @@
 &=\frac{\alpha}{1-\gamma}\mathrm{R}_m.
 \end{aligned}
 \end{equation}
-与之相似地可以求得
-\begin{equation}
+与之相似地可以求得式\ref{eq411}：
+\begin{equation}\label{eq411}
 \begin{aligned}
 V^{\pi,\mathcal{M}_\phi} = \mathbb{E}\left[{\sum}_{\tau \sim\mathcal{B}^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right] &\leq\int_{\tau \sim\mathcal{B}^{\pi,\mathcal{M}_\phi}}\left[\sum_{t=0}^\infty\gamma^t \mathrm{R}_m\right]p(\tau)\mathrm{d}\tau\\
 &=\left[\sum_{t=0}^\infty\gamma^t\right]\mathrm{R}_m\int_{\tau \sim\mathcal{B}^{\pi,\mathcal{M}_\phi}}p(\tau)\mathrm{d}\tau\\
@@ -151,7 +151,7 @@ V^{\pi,\mathcal{M}_\phi} = \mathbb{E}\left[{\sum}_{\tau \sim\mathcal{B}^{\pi,\ma
 &=\frac{1}{1-\gamma}\mathrm{R}_m.
 \end{aligned}
 \end{equation}
-根据上述推导得到的两个不等式关系以及式（\ref{proof:lem42p1}），可知
+根据上述推导得到的两个不等式关系以及式（\ref{proof:lem42p1}），可知满足不等式（\ref{eq:lem42}）关系：
 \begin{equation}
 \begin{aligned}
 |{V}_\alpha^{\pi, \mathcal{M}_{\phi}} - {V}^{\pi,\mathcal{M}_{\phi}}| &=  \left|\frac{\alpha}{1-\alpha}V^{\pi,\mathcal{M}_\phi}-\frac{\alpha}{1-\alpha}\mathbb{E}\left[{\sum}_{\tau \not\sim\mathcal{B}_\alpha^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right]\right| \\
@@ -167,8 +167,8 @@ V^{\pi,\mathcal{M}_\phi} = \mathbb{E}\left[{\sum}_{\tau \sim\mathcal{B}^{\pi,\ma
 
 \begin{theorem}\label{the:MBDP-bound}
 
-设 $K\geq 0$ 是一项常数。 在同时加入模拟数据筛选模块和集成模型筛选模块后所得到的策略期望价值 ${V}_\alpha^{\pi, \mathcal{M}^\beta}$，与真实环境$\mathcal{P}$下所能得到的期望策略价值 ${V}^{\pi, \mathcal{P}}$存在一个误差上界：
-\begin{equation}
+设 $K\geq 0$ 是一项常数。 在同时加入模拟数据筛选模块和集成模型筛选模块后所得到的策略期望价值 ${V}_\alpha^{\pi, \mathcal{M}^\beta}$，与真实环境$\mathcal{P}$下所能得到的期望策略价值 ${V}^{\pi, \mathcal{P}}$存在如式（\ref{eq413}）所述的误差上界：
+\begin{equation}\label{eq413}
 \left|{V}_\alpha^{\pi, \mathcal{M}^\beta}-{V}^{\pi, \mathcal{P}}\right|\leq D_{\alpha,\beta}(\mathcal{M}),
 \end{equation}
 其中
@@ -181,24 +181,23 @@ D_{\alpha,\beta}(\mathcal{M})\triangleq\frac{(1-\beta)\gamma K}{1-\gamma}\epsilo
 \end{equation}
 
 \end{theorem}
-为了证明上述定理，首先需要引入两个引理
-
+为了证明上述定理，首先需要引入两个引理：
 \begin{lemma}\label{lem:proof-for-lem41}
-给出定义
+给出定义式（\ref{def:G-sa}）：
 \begin{equation}\label{def:G-sa}
 G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E}}{{V}^{\pi,\mathcal{M}}}(\hat{s}') - \underset{s'\sim\mathcal{P}(\cdot|s,a)}{\mathbb{E}}{{V}^{\pi,\mathcal{M}}}(s'),
 \end{equation}
-对于任意策略 $\pi$ 和任意动态模型 $\mathcal{M},\mathcal{M}'$，存在如下关系式
-\begin{equation}
+对于任意策略 $\pi$ 和任意动态模型 $\mathcal{M},\mathcal{M}'$，存在关系式（\ref{eq417}）
+\begin{equation}\label{eq417}
 {V}^{\pi,\mathcal{M}'} - {V}^{\pi,\mathcal{M}} = \frac{\gamma}{1-\gamma}\underset{S,A\sim\pi,\mathcal{M}}{\mathbb{E}}\left[G^{\pi,\mathcal{M}'}(S,A)\right].
 \end{equation}
 \end{lemma}
 
-引理~\ref{lem:proof-for-lem41}~改写自Luo等\cite{luo2018algorithmic}在其论文中提出的引理4.3。在该引理的基础上，本文进一步推导出如下的引理~\ref{lem:mb-bound}~。
+引理~\ref{lem:proof-for-lem41}~改写自Luo等\cite{luo2018algorithmic}在其论文中提出的定理。在该引理的基础上，本文进一步推导出如下的引理~\ref{lem:mb-bound}~。
 
 \begin{lemma}\label{lem:mb-bound}
-设基于模型方法所能取得的价值函数 ${V}^{\pi,\mathcal{M}}$ 在状态空间$\mathcal{S}$上是Lipschitz连续的，并设$K$为 Lipschitz常数,。记$\mathcal{P}$表示真实环境的状态转移概率分布，则有如下的不等式关系：
-\begin{equation}
+设基于模型方法所能取得的价值函数 ${V}^{\pi,\mathcal{M}}$ 在状态空间$\mathcal{S}$上是Lipschitz连续的，并设$K$为 Lipschitz常数,。记$\mathcal{P}$表示真实环境的状态转移概率分布，则有如式（\ref{eq418}）的不等式关系：
+\begin{equation}\label{eq418}
 \left|{V}^{\pi, \mathcal{M}}-{V}^{\pi, \mathcal{P}}\right| \leq\frac{\gamma}{1-\gamma}K\cdot\mathrm{bias},
 \end{equation}
 其中
@@ -209,7 +208,7 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 \label{theo:mb-bound}
 \end{lemma}
 
-引理~\ref{lem:mb-bound}~中假设了关于估计模型$\mathcal{M}$的期望收益${V}^{\pi,\mathcal{M}}(s)$ 关于任意范数距离$\|\cdot\|$都是Lipschitz连续的，即
+引理~\ref{lem:mb-bound}~中假设了关于估计模型$\mathcal{M}$的期望收益${V}^{\pi,\mathcal{M}}(s)$ 关于任意范数距离$\|\cdot\|$都是Lipschitz连续的，即满足式（\ref{assum:lip}）：
 \begin{equation}\label{assum:lip}
     \left|{V}^{\pi,\mathcal{M}}(s)-{V}^{\pi,\mathcal{M}}(s^{\prime})\right| \leq K\left\|s-s^{\prime}\right\|, \forall s, s^{\prime} \in \mathcal{S},
 \end{equation}
@@ -217,10 +216,10 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 
 \begin{proof}
 
-根据$G^{\pi,\mathcal{M}}(s,a)$在式（\ref{def:G-sa}）中的定义，以及假设 ${V}^{\pi,\mathcal{M}}(s)$ 满足 Lipschitz 连续性（\ref{assum:lip}）, 可以得到
+根据$G^{\pi,\mathcal{M}}(s,a)$在式（\ref{def:G-sa}）中的定义，以及假设 ${V}^{\pi,\mathcal{M}}(s)$ 满足 Lipschitz 连续性（\ref{assum:lip}）, 可以得到式（\ref{eq:G-leq}）：
 \begin{equation}\label{eq:G-leq}
-|G^{\pi,\mathcal{M}}(s,a)|\leq K\|\mathcal{M}(s,a)-\mathcal{P}(s,a)\|
-\end{equation}.
+|G^{\pi,\mathcal{M}}(s,a)|\leq K\|\mathcal{M}(s,a)-\mathcal{P}(s,a)\|.
+\end{equation}
 因此
 \begin{equation}
 \begin{aligned}
@@ -234,7 +233,9 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 证毕。
 \end{proof}
 
-定理~\ref{the:MBDP-bound}~的重要意义是，在加入模拟数据筛选模块和集成模型筛选模块后，模型给出的模拟数据与传统的模拟方式相比只存在一个可控的误差上界，对强化学习的训练带来的误差影响并不大，在该可控范围内，如前文对筛选机制的具体描述，本论文能够得到鲁棒性更好的决策策略。基于定理~\ref{the:beta-drop-bound}~和引理~\ref{lem:mb-bound}~，可证明定理~\ref{the:MBDP-bound}~，证明过程如下。
+定理~\ref{the:MBDP-bound}~的重要意义是，在加入模拟数据筛选模块和集成模型筛选模块后，模型给出的模拟数据与传统的模拟方式相比只存在一个可控的误差上界，对强化学习的训练带来的误差影响并不大，在该可控范围内，如前文对筛选机制的具体描述，本论文能够得到鲁棒性更好的决策策略。
+
+基于前文证明得到的定理~\ref{the:beta-drop-bound}~和引理~\ref{lem:mb-bound}~，可以进一步证明得到定理~\ref{the:MBDP-bound}~，具体证明过程如下。
 
 \begin{proof}
 
@@ -278,9 +279,7 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 证毕。
 \end{proof}
 
-根据定理~\ref{the:MBDP-bound}~中的的误差上界$D_{\alpha,\beta}(\mathcal{M})$分析可以得出结论，由于$D_{\alpha,\beta}(\mathcal{M})$与$\alpha$成正比，与$\beta$成反比，易知当$\alpha$增大或$\beta$减小时，该误差上界会被扩大，导致算法训练过程中的准确性下降，使得算法需要更长时间才能收敛，最终致使算法的样本效率降低。反之，若$\alpha$减小或$\beta$增大时，算法的样本效率则能得以提升。
-
-由于MBDP算法作为基于模型的强化学习算法，可将其更新规则表示为下式：
+根据定理~\ref{the:MBDP-bound}~中的的误差上界$D_{\alpha,\beta}(\mathcal{M})$分析可以得出结论，由于$D_{\alpha,\beta}(\mathcal{M})$与$\alpha$成正比，与$\beta$成反比，易知当$\alpha$增大或$\beta$减小时，该误差上界会被扩大，导致算法训练过程中的准确性下降，使得算法需要更长时间才能收敛，最终致使算法的样本效率降低。反之，若$\alpha$减小或$\beta$增大时，算法的样本效率则能得以提升。由于MBDP算法作为基于模型的强化学习算法，可将其更新规则表示为式（\ref{eq:algo-equation}）：
 \begin{equation}
     \pi_{k+1}, \mathcal{M}^\beta_{k+1}=\underset{\pi_k, \mathcal{M}_k^\beta}{\arg\max}\left[{V}^{\pi_k, \mathcal{M}_k^\beta}-D_{\alpha,\beta}(\mathcal{M}^\beta_k)\right],
 \label{eq:algo-equation}
@@ -308,7 +307,7 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 \begin{equation}\label{eq:prop44p1}
 {V}^{\pi_{k+1}, \mathcal{P}} \geq {V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta).
 \end{equation}
-由于不等式（\ref{eq:prop44p1}）的左边部分 ${V}^{\pi_{k+1}, \mathcal{P}}$ 比右边部分${V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta)$大，可将该不等式改写为一个带有残差项$\epsilon_{k+1}$的等式：
+由于不等式（\ref{eq:prop44p1}）的左边部分 ${V}^{\pi_{k+1}, \mathcal{P}}$ 比右边部分${V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta)$大，可将该不等式改写为一个带有残差项$\epsilon_{k+1}$的等式（\ref{proof:prop44p1}）：
 \begin{equation}\label{proof:prop44p1}
 {V}^{\pi_{k+1}, \mathcal{P}} = {V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta) + \epsilon_{k+1},
 \end{equation}
@@ -316,7 +315,7 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 \begin{equation}
 \epsilon_{k+1} \triangleq {V}^{\pi_{k+1}, \mathcal{P}} - \left[{V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta} - D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta)\right].
 \end{equation}
-根据更新规则（\ref{eq:algo-equation}），可得
+根据更新规则式（\ref{eq:algo-equation}），可得
 \begin{equation}\label{proof:prop44p2}
 {V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta) \geq {V}^{\pi_k,\mathcal{P}}-D_{\alpha,\beta}(\mathcal{P}).
 \end{equation}
@@ -336,7 +335,7 @@ D_{\alpha,\beta}(\mathcal{P}) &= \frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\ma
 \label{proof:prop44p3}
 \end{aligned}
 \end{equation}
-根据式（\ref{proof:prop44p1}），（\ref{proof:prop44p2}）和（\ref{proof:prop44p3}），
+根据式（\ref{proof:prop44p1}），式（\ref{proof:prop44p2}）和式（\ref{proof:prop44p3}），
 \begin{equation}
 {V}^{\pi_{k+1}, \mathcal{P}}\geq {V}^{\pi_{k}, \mathcal{P}} + \left[\epsilon_{k+1} - \epsilon_\alpha\right].
 \end{equation}
