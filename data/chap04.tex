@@ -142,7 +142,7 @@
 &=\frac{\alpha}{1-\gamma}\mathrm{R}_m.
 \end{aligned}
 \end{equation}
-与之相似地可以求得式\ref{eq411}：
+与之相似地可以求得式（\ref{eq411}）：
 \begin{equation}\label{eq411}
 \begin{aligned}
 V^{\pi,\mathcal{M}_\phi} = \mathbb{E}\left[{\sum}_{\tau \sim\mathcal{B}^{\pi,\mathcal{M}_\phi}}\left[\gamma^t r(s_t,a_t)\right]\right] &\leq\int_{\tau \sim\mathcal{B}^{\pi,\mathcal{M}_\phi}}\left[\sum_{t=0}^\infty\gamma^t \mathrm{R}_m\right]p(\tau)\mathrm{d}\tau\\
@@ -239,7 +239,7 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 
 \begin{proof}
 
-根据定理~\ref{the:beta-drop-bound}~和引理~\ref{lem:mb-bound}~，首先可以证明
+根据定理~\ref{the:beta-drop-bound}~和引理~\ref{lem:mb-bound}~，首先可以证明：
 \begin{equation}
 \begin{aligned}
 \left|{V}_\alpha^{\pi, \mathcal{M}^\beta}-{V}^{\pi, \mathcal{P}}\right|&=\left|\int_{\Phi_\beta}{V}_\alpha^{\pi, \mathcal{M}_{\phi}}p(\phi)\mathrm{d}\phi-{V}^{\pi, \mathcal{P}}\right| \\
@@ -253,7 +253,7 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 \begin{equation}
 \epsilon_{\mathcal{M}}\triangleq\underset{\phi\in\Phi}{\mathbb{E}}\left[\underset{s,a\sim \pi,\mathcal{P}}{\mathbb{E}}\left[\left\|\mathcal{M}_\phi(s, a)-\mathcal{P}(s, a)\right\|\right]\right]
 \end{equation}
-表示在模型$\mathcal{M}$和环境$\mathcal{P}$之间的一般性偏差。根据引理~\ref{lem:mb-bound}~，可以求得
+表示在模型$\mathcal{M}$和环境$\mathcal{P}$之间的一般性偏差。根据引理~\ref{lem:mb-bound}~，可以求得：
 \begin{equation}
 \begin{aligned}
 \int_{\Phi_\beta}\left|{V}^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right|p(\phi)\mathrm{d}\phi &\leq \frac{\gamma K}{1-\gamma}\int_{\Phi_\beta}\underset{s,a\sim\pi,\mathcal{P}}{\mathbb{E}}\left[\left\|\mathcal{M}_\phi(s, a)-\mathcal{P}(s, a)\right\|\right]p(\phi)\mathrm{d}\phi\\
@@ -261,14 +261,14 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 &=\frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\mathcal{M}}. \label{proof:theo43p2}
 \end{aligned}
 \end{equation}
-对于式（\ref{proof:theo43p1}）的第二部分， 根据定理~\ref{the:beta-drop-bound}~可以证明
+对于式（\ref{proof:theo43p1}）的第二部分， 根据定理~\ref{the:beta-drop-bound}~可以证明：
 \begin{equation}
 \begin{aligned}
 \int_{\Phi_\beta}\left|{V}_\alpha^{\pi, \mathcal{M}_{\phi}} - {V}^{\pi,\mathcal{M}_{\phi}}\right|p(\phi)\mathrm{d}\phi&\leq \frac{\alpha(1+\alpha)}{(1-\alpha)(1-\gamma)}\mathrm{R}_m\int_{\Phi_\beta}p(\phi)\mathrm{d}\phi\\
 &=\frac{\alpha(1+\alpha)(1-\beta)}{(1-\alpha)(1-\gamma)}\mathrm{R}_m. \label{proof:theo43p3}
 \end{aligned}
 \end{equation}
-将上述结果代回式（\ref{proof:theo43p1}），可以得到
+将上述结果代回式（\ref{proof:theo43p1}），可以得到：
 \begin{equation}
 \begin{aligned}
 \left|{V}_\alpha^{\pi, \mathcal{M}^\beta}-{V}^{\pi, \mathcal{P}}\right| &\leq \int_{\Phi_\beta}\left|{V}^{\pi, \mathcal{M}_{\phi}}-{V}^{\pi, \mathcal{P}}\right|p(\phi)\mathrm{d}\phi+\int_{\Phi_\beta}\left|\epsilon_\alpha\right|p(\phi)\mathrm{d}\phi\\
@@ -286,7 +286,7 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 \end{equation}
 在该更新式的表达下，本文给出如下的定理
 \begin{theorem}
-根据式（\ref{eq:algo-equation}），当每一步所得的策略部署在真实环境$\mathcal{P}$中时，其期望收益将会关于步数呈现单调递增趋势，即
+根据式（\ref{eq:algo-equation}），当每一步所得的策略部署在真实环境$\mathcal{P}$中时，其期望收益将会关于步数呈现单调递增趋势，即：
 \begin{equation}
     {V}^{\pi_{k+1}, \mathcal{P}}\geq {V}^{\pi_{k}, \mathcal{P}} + (\epsilon_{k+1} - \epsilon_\alpha) \triangleq {V}^{\pi_{k}, \mathcal{P}} + \eta,
 \end{equation}
@@ -294,7 +294,7 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 \begin{equation}
     \epsilon_\alpha \triangleq |{V}_\alpha^{\pi, \mathcal{M}_{\phi}} - {V}^{\pi,\mathcal{M}_{\phi}}|   \leq \frac{\alpha}{1-\gamma}\mathrm{R_{m}}.
 \end{equation}
-而$\epsilon_{k+1}$表示更新残差，记作
+而$\epsilon_{k+1}$表示更新残差，记作：
 \begin{equation}
     \epsilon_{k+1} \triangleq {V}^{\pi_{k+1}, \mathcal{P}} - \left[{V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta} - D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta)\right].
 \end{equation}
@@ -303,7 +303,7 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 
 \begin{proof}
 
-根据定理~\ref{the:MBDP-bound}~， $\left|{V}_\alpha^{\pi, \mathcal{M}^\beta}-{V}^{\pi, \mathcal{P}}\right|\leq D_{\alpha,\beta}(\mathcal{M})$，可得
+根据定理~\ref{the:MBDP-bound}~， $\left|{V}_\alpha^{\pi, \mathcal{M}^\beta}-{V}^{\pi, \mathcal{P}}\right|\leq D_{\alpha,\beta}(\mathcal{M})$，可得：
 \begin{equation}\label{eq:prop44p1}
 {V}^{\pi_{k+1}, \mathcal{P}} \geq {V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta).
 \end{equation}
@@ -315,7 +315,7 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 \begin{equation}
 \epsilon_{k+1} \triangleq {V}^{\pi_{k+1}, \mathcal{P}} - \left[{V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta} - D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta)\right].
 \end{equation}
-根据更新规则式（\ref{eq:algo-equation}），可得
+根据更新规则式（\ref{eq:algo-equation}），可得：
 \begin{equation}\label{proof:prop44p2}
 {V}_{\alpha}^{\pi_{k+1}, \mathcal{M}_{k+1}^\beta}-D_{\alpha,\beta}(\mathcal{M}_{k+1}^\beta) \geq {V}^{\pi_k,\mathcal{P}}-D_{\alpha,\beta}(\mathcal{P}).
 \end{equation}
@@ -326,7 +326,7 @@ G^{\pi,\mathcal{M}}(s,a)=\underset{\hat{s}'\sim\mathcal{M}(\cdot|s,a)}{\mathbb{E
 &=\underset{\phi\in\Phi}{\mathbb{E}}\left[0\right] = 0,
 \end{aligned}
 \end{equation}
-可以证明
+可以证明：
 \begin{equation}
 \begin{aligned}
 D_{\alpha,\beta}(\mathcal{P}) &= \frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\mathcal{P}}+\frac{\alpha(1+\alpha)(1-\beta)}{(1-\alpha)(1-\gamma)}\mathrm{R}_m\\
@@ -335,11 +335,11 @@ D_{\alpha,\beta}(\mathcal{P}) &= \frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\ma
 \label{proof:prop44p3}
 \end{aligned}
 \end{equation}
-根据式（\ref{proof:prop44p1}），式（\ref{proof:prop44p2}）和式（\ref{proof:prop44p3}），
+根据式（\ref{proof:prop44p1}），式（\ref{proof:prop44p2}）和式（\ref{proof:prop44p3}）可知：
 \begin{equation}
 {V}^{\pi_{k+1}, \mathcal{P}}\geq {V}^{\pi_{k}, \mathcal{P}} + \left[\epsilon_{k+1} - \epsilon_\alpha\right].
 \end{equation}
-显然可知，更新残差项$\epsilon_{k+1}$在训练阶段远大于$\epsilon_\alpha$，因此满足 $\left[\epsilon_{k+1} - \epsilon_\alpha\right]\geq 0$，从而${V}^{\pi_{k+1}, \mathcal{P}}\geq{V}^{\pi_{k}, \mathcal{P}}+0$。最终可以得到
+显然可知，更新残差项$\epsilon_{k+1}$在训练阶段远大于$\epsilon_\alpha$，因此满足 $\left[\epsilon_{k+1} - \epsilon_\alpha\right]\geq 0$，从而${V}^{\pi_{k+1}, \mathcal{P}}\geq{V}^{\pi_{k}, \mathcal{P}}+0$。最终可以得到：
 
 \begin{equation}
 {V}^{\pi_{0}, \mathcal{P}} \leq \cdots \leq {V}^{\pi_{k}, \mathcal{P}} \leq {V}^{\pi_{k+1}, \mathcal{P}} \leq \cdots
@@ -350,18 +350,18 @@ D_{\alpha,\beta}(\mathcal{P}) &= \frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\ma
 上述的分析论证了MBDP算法在样本效率上能够确保策略收益随训练步数单调递增，下面对MBDP算法的鲁棒性进行分析论证。本文将鲁棒性定义为算法在受干扰环境下的期望性能。考虑一个干扰矩阵$\hat{\mathcal{P}}=\mathcal{P}_t \circ \delta_t$，其中$\delta_t\in\mathbb{R}^{\mathcal{S}\times\mathcal{A}\times\mathcal{S}}$为可积概率干扰，“$\circ$”为Hadamard乘积记号。根据式（\ref{eq:def-cvar}）中对$\mathrm{CVaR}$的定义，本文提出定理~\ref{the:robustness}~。
 
 \begin{theorem}\label{the:robustness}
-给定$\alpha\in(0,1)$以及干扰约束集合
+给定$\alpha\in(0,1)$以及干扰约束集合：
 \begin{equation}\label{eq:supp-perturbation}
     \Delta_\alpha \triangleq \left\{\delta_i\middle\vert\prod_{i=1}^{T}\delta_i(s_i\mid s_{i-1},a_{i-1})\leq \frac{1}{\alpha}, \forall s_i\in\mathcal{S}, a_i\in\mathcal{A}\right\}.
 \end{equation}
-存在如下关系
+存在如下关系：
 \begin{equation}\label{eq:return-cvar-rob}
     V_\alpha^{\pi,\mathcal{M}} = -\mathrm{CVaR}_\alpha\left(-V^{\pi,\mathcal{M}}\right)=\inf\limits_{\Delta_\alpha}\mathbb{E}_{\hat{\mathcal{P}}}\left[V^{\pi,\mathcal{M}}\right].
 \end{equation}
 \end{theorem}
 
 \begin{proof}
-根据 $\mathrm{CVaR}$ 的定义式（\ref{eq:def-cvar}）和 $V_\alpha^{\pi,\mathcal{M}}$的定义式（\ref{def:eta-beta}），将奖励反馈取负值用于表示损失，此时可以证明
+根据 $\mathrm{CVaR}$ 的定义式（\ref{eq:def-cvar}）和 $V_\alpha^{\pi,\mathcal{M}}$的定义式（\ref{def:eta-beta}），将奖励反馈取负值用于表示损失，此时可以证明：
 \begin{equation}
 \begin{aligned}
 \mathrm{CVaR}_\alpha(-V^{\pi,\mathcal{M}}) &= \mathbb{E}\left[-V^{\pi,\mathcal{M}}\mid -V^{\pi,\mathcal{M}} \geq \mathrm{VaR}_\alpha(-V^{\pi,\mathcal{M}})\right]\\
@@ -369,15 +369,15 @@ D_{\alpha,\beta}(\mathcal{P}) &= \frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\ma
 &=-\mathbb{E}\left[{\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right]\mid {\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right] \leq -\mathrm{VaR}_\alpha(-V^{\pi,\mathcal{M}})\right].
 \end{aligned}
 \end{equation}
-显然，上式中的条件 ${\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right] \leq -\mathrm{VaR}_\alpha(-V^{\pi,\mathcal{M}})$ 符合式（\ref{def:batch-alpha-beta}）的定义，即
+显然，上式中的条件 ${\sum}_{\mathcal{B}^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right] \leq -\mathrm{VaR}_\alpha(-V^{\pi,\mathcal{M}})$ 符合式（\ref{def:batch-alpha-beta}）的定义，即：
 \begin{equation}\label{def:batch-alpha-beta}
     \mathcal{B}_\alpha^{\pi,\mathcal{M}^\beta}=\left\{x|x\in\mathcal{B}^{\pi,\mathcal{M}^\beta},r(x|s)\leq r_{1-\alpha}(\mathcal{B}^{\pi,\mathcal{M}^\beta}|s), \forall s \in \mathcal{S}\right\},
 \end{equation}
-因此，定理~\ref{the:robustness}~的第一个等式得证，即
+因此，定理~\ref{the:robustness}~的第一个等式得证，即：
 \begin{equation}
 -\mathrm{CVaR}_\alpha(-V^{\pi,\mathcal{M}}) = \mathbb{E}\left[{\sum}_{\mathcal{B}_\alpha^{\pi,\mathcal{M}}}\left[\gamma^t r(s_t,a_t)\right]\right] = V_\alpha^{\pi,\mathcal{M}}.
 \end{equation}
-考虑到$\mathbb{E}_{\hat{\mathcal{P}}}[-V^{\pi,\mathcal{M}}]$，根据$\hat{\mathcal{P}}$的定义可知
+考虑到$\mathbb{E}_{\hat{\mathcal{P}}}[-V^{\pi,\mathcal{M}}]$，根据$\hat{\mathcal{P}}$的定义可知：
 \begin{equation}
 \begin{aligned}
     \mathbb{E}_{\hat{\mathcal{P}}}[V^{\pi,\mathcal{M}}] &= -\mathbb{E}_{\hat{\mathcal{P}}}[-V^{\pi,\mathcal{M}}]\\
@@ -386,11 +386,11 @@ D_{\alpha,\beta}(\mathcal{P}) &= \frac{(1-\beta)\gamma K}{1-\gamma}\epsilon_{\ma
     &\triangleq \sum_{(s_0,\ldots,s_T)\in\mathcal{S}^{T+1}}\mathcal{P}(s_0,\ldots,s_T)\delta(s_0,\ldots,s_T)\cdot V^{\pi,\mathcal{M}}.
 \end{aligned}
 \end{equation}
-由于$\delta$ 为环境中的随机干扰，显然可知
+由于$\delta$ 为环境中的随机干扰，显然可知：
 \begin{equation}\label{eq:delta-exp}
     \mathbb{E}\left[\delta(s_0,\ldots,s_T)\right] = \sum_{(s_0,\ldots,s_T)\in\mathcal{S}^{T+1}}\mathcal{P}(s_0,\ldots,s_T)\delta(s_0,\ldots,s_T) = 1.
 \end{equation}
-根据$\Delta_\alpha$ 的定义式（\ref{eq:supp-perturbation}），（\ref{eq:delta-exp}）和CVaR的表达性定理\cite{chow2015risk}，可以证明定理~\ref{the:robustness}~的第二个等式
+根据$\Delta_\alpha$ 的定义式（\ref{eq:supp-perturbation}），（\ref{eq:delta-exp}）和CVaR的表达性定理\cite{chow2015risk}，可以证明定理~\ref{the:robustness}~的第二个等式：
 \begin{equation}
 \begin{aligned}
     \inf\limits_{\Delta_\alpha}\mathbb{E}_{\hat{\mathcal{P}}}[V^{\pi,\mathcal{M}}] &= \inf\limits_{\delta(s_0,\ldots,s_T)\leq\frac{1}{\alpha}}\sum_{(s_0,\ldots,s_T)\in\mathcal{S}^{T+1}}\mathcal{P}(s_0,\ldots,s_T)\delta(s_0,\ldots,s_T)\cdot V^{\pi,\mathcal{M}}\\
@@ -497,7 +497,7 @@ Ant         & 300000 & $10^5$ & 20 & 250 & 0.2 & 0.2 & 0.99 & \begin{tabular}[c]
   \label{fig:hyper-performance}
 \end{figure}
 
-观察实验结果，显然可以得出结论，样本利用效率与参数$\alpha$呈现负相关趋势，与参数$\beta$呈现正相关趋势；鲁棒性与参数$\alpha$呈现正相关趋势，与参数$\beta$呈现负相关趋势。这也验证了~\ref{sec:mbdp-description}~节中所提出的MBDP算法与样本利用效率和鲁棒性的关系。此外，本文在实验结果图中用水平虚线画出了不使用任何筛选模块的基线算法（$\alpha=\beta=0$）性能，可以看出当$\alpha\in[0.1,0.2],\beta\in[0.1,0.2]$时，MBDP算法能同时得到样本利用效率和鲁棒性的提升。
+观察实验结果，显然可以得出结论，样本利用效率与参数$\alpha$呈现负相关趋势，与参数$\beta$呈现正相关趋势；鲁棒性与参数$\alpha$呈现正相关趋势，与参数$\beta$呈现负相关趋势。这也验证了~\ref{sec:mbdp-description}~节中所提出的MBDP算法与样本利用效率和鲁棒性的关系。此外，本文在实验结果图中用水平虚线画出了不使用任何筛选模块的基线算法（$\alpha=\beta=0$）性能，可以看出当$\alpha\in[0.1,0.2]$，$\beta\in[0.1,0.2]$时，MBDP算法能同时得到样本利用效率和鲁棒性的提升。
 
 \section{本章小结}
 

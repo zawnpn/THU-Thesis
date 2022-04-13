@@ -81,8 +81,8 @@ q_*(s,a) = \sum_{s',r}p(s',r \mid s,a)\left[r+\gamma \max_{a'}q_*(s',a') \right]
     \pi'(s) &= \mathop{\arg\max}\limits_a q_\pi(s, a)\\&=\mathop{\arg\max}\limits_a \mathbb{E}[R_{t+1}+\gamma v_\pi(S_{t+1})\mid S_t=s,A_t=a] \\&= \mathop{\arg\max}\limits_a \sum_{s',r} p(s', r | s, a) (r + \gamma v_\pi(s')).
     \end{aligned}
 \end{equation}
-具体的更新流程如算法~\ref{algo:bellman-update}~所示。将上述的值估计求解算法与策略优化算法相结合，进行循环优化，记策略价值函数估计（Policy Evaluation）为E步骤，由符号“$\xrightarrow{E}$”表示；记策略优化（Policy Improvement）为I步骤，由符号“$\xrightarrow{I}$”表示。则上述的循环优化过程可以表示为如下所示的流程：
-\begin{equation}
+具体的更新流程如算法~\ref{algo:bellman-update}~所示。将上述的值估计求解算法与策略优化算法相结合，进行循环优化，记策略价值函数估计（Policy Evaluation）为E步骤，由符号“$\xrightarrow{E}$”表示；记策略优化（Policy Improvement）为I步骤，由符号“$\xrightarrow{I}$”表示。则上述的循环优化过程可以表示为如式（\ref{process:EI}）所示的流程：
+\begin{equation}\label{process:EI}
 \pi_0 \xrightarrow{E} v_{\pi_0} \xrightarrow{I}\pi_1 \xrightarrow{E} v_{\pi_1} \xrightarrow{I} \pi_2 \xrightarrow{E} \cdots \xrightarrow{I} \pi_* \xrightarrow{E} v_*
 \end{equation}
 通过循环优化过程，最终可以得到最终的收敛最优策略。
