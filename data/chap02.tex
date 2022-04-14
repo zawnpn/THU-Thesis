@@ -120,7 +120,7 @@ q_*(s,a) = \sum_{s',r}p(s',r \mid s,a)\left[r+\gamma \max_{a'}q_*(s',a') \right]
 \begin{equation}
     J(\boldsymbol{\theta}) \doteq v_{\pi_{\boldsymbol{\theta}}}\left(s_{0}\right),
 \end{equation}
-其中 $v_{\pi_{\boldsymbol{\theta}}}\left(s_{0}\right)$ 是 $\pi_\theta$ 初始状态为$s_0$条件下的真实价值函数 ，其中策略由 $\boldsymbol{\theta}$ 决定。通过对价值函数 $J ( \boldsymbol { \theta } )$ 的梯度进行梯度更新优化，可以实现性能的最优化，即
+其中 $v_{\pi_{\boldsymbol{\theta}}}\left(s_{0}\right)$ 表示策略 $\pi_\theta$ 在初始状态为$s_0$时的真实价值函数 ，策略$\pi_{\boldsymbol{\theta}}$由参数 $\boldsymbol{\theta}$ 决定。基于以上定义，通过对目标价值函数 $J ( \boldsymbol { \theta } )$ 的梯度进行梯度更新优化，可以实现性能的最优化，即
 \begin{equation}
 \boldsymbol { \theta } _ { t + 1 } = \boldsymbol { \theta } _ { t } + \alpha \widehat { \nabla J \left( \boldsymbol { \theta } _ { t } \right) },
 \end{equation}
@@ -185,9 +185,7 @@ q_*(s,a) = \sum_{s',r}p(s',r \mid s,a)\left[r+\gamma \max_{a'}q_*(s',a') \right]
     \widehat{V}_{H}\left(s_{0}\right)=\sum_{t=0}^{H-1} \gamma^{t} \hat{r}_{t}+\gamma^{H} \widehat{V}\left(\hat{s}_{H}\right).
 \end{equation}
 
-MVE将传统无模型强化学习中的值函数学习方法引入模型规划来辅助学习，采用了固定深度的模拟与对剩余部分估计的结合，实现了模型规划的优化。而在Re-Plan方法中 \cite{williams2017information}，每次规划决策得到行动指令，并且基于该指令实际执行行动后，发现真实情况下的转移状态与之前模型规划得到的推理状态之间存在误差，该方法将真实状态进行储存，用作模型预测的修正，从而在下一次规划时，确保模型所预测的有误差状态能被存储记录修正，该方法可以有效地解决模型预测偏差的问题。
-
-在MBPO方法中 \cite{janner2019trust}，作者证明了当规划长度控制在一个可控长度$k$以内，即
+MVE方法将传统无模型强化学习中的值函数学习方法引入模型规划来辅助学习，采用了固定深度的模拟与对剩余部分估计的结合，实现了模型规划的优化。而在Re-Plan方法中 \cite{williams2017information}，每次规划决策得到行动指令，并且基于该指令执行动作后，发现真实情况下的转移状态与之前模型规划得到的推理状态之间存在误差，该方法将真实状态储存，用作模型预测的修正，从而在下一次规划时确保模型预测误差能被存储记录修正，该方法可以有效地解决模型预测偏差的问题。在MBPO方法中 \cite{janner2019trust}，作者证明了当规划长度控制在一个可控长度$k$以内，即
 \begin{equation}
 k^{*}=\underset{k}{\operatorname{argmin}}\left[\frac{\gamma^{k+1} \epsilon_{\pi}}{(1-\gamma)^{2}}+\frac{\gamma^{k} \epsilon_{\pi}}{(1-\gamma)}+\frac{k}{1-\gamma}\left(\epsilon_{m^{\prime}}\right)\right]>0.
 \end{equation}
