@@ -436,7 +436,7 @@ Time & $\approx 10$ hours & $\approx 20$ hours & $\approx 32$ hours & $\approx 4
 \label{tab:run-time}
 \end{table}
 
-在四组不同的Mujoco任务上，与最新的MBPO \cite{janner2019trust}算法、STEVE \cite{buckman2018sample}算法、SLBO \cite{Luo2019AlgorithmicGuarantees}算法以及无模型的SAC \cite{haarnoja2018soft}算法进行对比实验。在本课题的算法中，使用了参数$\alpha=0.2, \beta=0.2$。对比实验结果如图~\ref{fig:performance}~所示，其中横轴为训练的步数，纵轴为相应步数对应的平均收益，每隔1000步统计一次当前累积收益并绘制在图中。实线表示不同随机种子实验（共5组随机数种子）的均值结果，阴影区域则表示这些实验的方差。由于SAC是无模型强化学习算法，相较基于模型的强化学习算法收敛速度较慢，因此只在图中画出部分训练曲线图，其最终收敛值通过虚线标注出来。根据实验结果可以看出，基于模型集成的筛选规划算法在四种不同的任务环境中，均有着超越现有算法的表现。
+在四组不同的Mujoco任务上，与最新的MBPO \cite{janner2019trust}算法、STEVE \cite{buckman2018sample}算法、SLBO \cite{Luo2019AlgorithmicGuarantees}算法以及无模型的SAC \cite{haarnoja2018soft}算法进行对比实验。在本课题的算法中，使用了参数$\alpha=0.2, \beta=0.2$。对比实验结果如图~\ref{fig:performance}~所示，其中横轴为训练的步数，纵轴为相应步数对应的平均收益，每隔1000步统计一次当前累积收益并绘制在图中。实线表示不同随机种子实验（共5组随机数种子）的均值结果，阴影区域则表示这些实验的方差。SAC算法作为一种无模型强化学习算法，其收敛速度相对其他基线算法较慢，因此只在图中画出部分训练曲线图，其最终收敛值通过虚线标注出来。根据实验结果可以看出，基于模型集成的筛选规划算法在四种不同的任务环境中，均有着超越现有算法的表现。
 
 \begin{figure}[ht]
   \centering
