@@ -122,9 +122,9 @@ q_*(s,a) = \sum_{s',r}p(s',r \mid s,a)\left[r+\gamma \max_{a'}q_*(s',a') \right]
 \end{equation}
 其中 $v_{\pi_{\boldsymbol{\theta}}}\left(s_{0}\right)$ 表示策略 $\pi_\theta$ 在初始状态为$s_0$时的真实价值函数 ，策略$\pi_{\boldsymbol{\theta}}$由参数 $\boldsymbol{\theta}$ 决定。基于以上定义，通过对目标价值函数 $J ( \boldsymbol { \theta } )$ 的梯度进行梯度更新优化，可以实现性能的最优化，即
 \begin{equation}
-\boldsymbol { \theta } _ { t + 1 } = \boldsymbol { \theta } _ { t } + \alpha \widehat { \nabla J \left( \boldsymbol { \theta } _ { t } \right) },
+\boldsymbol { \theta } _ { t + 1 } = \boldsymbol { \theta } _ { t } + \alpha \nabla \widehat {  J }\left( \boldsymbol { \theta } _ { t } \right) ,
 \end{equation}
-其中$\widehat { \nabla J \left( \boldsymbol { \theta } _ { t } \right) } \in \mathbb { R } ^ { d ^ { \prime } }$ 是梯度的估计值，满足$E_\boldsymbol{\theta}\left[\widehat { \nabla J \left( \boldsymbol { \theta } \right) }\right]=\nabla V(\boldsymbol{\theta})$，即其期望值为真实的梯度。基于以上的定义，可以给出如下定理：
+其中$\nabla\widehat {  J }\left( \boldsymbol { \theta } _ { t } \right)  \in \mathbb { R } ^ { d ^ { \prime } }$ 是梯度的估计值，满足$E_\boldsymbol{\theta}\left[\nabla\widehat {  J }\left( \boldsymbol { \theta } \right) \right]=\nabla V(\boldsymbol{\theta})$，即其期望值为真实的梯度。基于以上的定义，可以给出如下定理：
 \begin{theorem}
 给定状态访问概率分布$\mu(s)$、行动价值函数$q_\pi(s,a)$，性能目标函数的梯度$\nabla J(\boldsymbol{\theta})$与策略函数的梯度$\pi(a | s, \boldsymbol{\theta})$存在如下所示的正比关系：
 \begin{equation}

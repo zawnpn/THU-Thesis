@@ -26,7 +26,16 @@
 
 \subsection{环境模型的数据生成与筛选}\label{sec:rollout-method}
 
-传统的基于模型的强化学习算法在得到环境模型后，往往是以期望收益为目标进行最大化优化，但是期望意义下的最优并不意味着在任意环境下都能有优秀的表现。在实际部署策略的时候，当智能体面对一些受干扰的状态或是信息量不充分的状态时，容易做出一些不合理甚至危险的决策，导致强化学习在实际部署中出现不稳定的情况\cite{zhang2021mbdp}。为了解决这一问题，本论文提出了一种主动关注较坏情况的样本筛选机制，适当延缓强化学习训练速度，提升决策策略的鲁棒性。
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/mbdp.pdf}
+\caption{基于模型集成的筛选规划算法示意图}
+\label{fig:mbdp-structure}
+\end{figure}
+
+传统的基于模型的强化学习算法在得到环境模型后，往往是以期望收益为目标进行最大化优化，但是期望意义下的最优并不意味着在任意环境下都能有优秀的表现。
+
+在实际部署策略的时候，当智能体面对一些受干扰的状态或是信息量不充分的状态时，容易做出一些不合理甚至危险的决策，导致强化学习在实际部署中出现不稳定的情况\cite{zhang2021mbdp}。为了解决这一问题，本论文提出了一种主动关注较坏情况的样本筛选机制，适当延缓强化学习训练速度，提升决策策略的鲁棒性。
 
 具体地，基于上一节得到的$\mathcal{M}^{\beta}$模型集合，在每一步都随机抽取一个模型$\mathcal{M}_{\phi_i}\in\mathcal{M}^\beta$，然后使用该模型进行下一时刻的状态预测，即$s_{t+1}\sim \mathcal{M}_{\phi_t}(s_t,a_t), \phi_t\in\Phi_\beta$，这样的一组状态和动作组成模拟样本$x=\left(s_{t+1},s_t,a_t\right)$，填入缓存池，然后相似地以一个概率参数$\alpha\in(0,1]$进行筛选，从中挑选出反馈奖励值相对较低的样本，得到一个筛选后的$\alpha$分位数样本集合
 \begin{equation}
@@ -35,13 +44,6 @@
 其中$\mathcal{B}^{\pi,\mathcal{M}^\beta}=\left\{x|x\triangleq\left(s_{t+1},s_t,a_t\right)\sim\pi,\mathcal{M}^\beta\right\}$， $r_{1-\alpha}(\mathcal{B}^{\pi,\mathcal{M}^\beta}|s)$ 是缓存池 $\mathcal{B}^{\pi,\mathcal{M}^\beta}$的$100\times(1-\alpha)$分位数。
 
 \subsection{算法描述与整体框架}\label{sec:mbdp-description}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\textwidth]{figures/mbdp.pdf}
-\caption{基于模型集成的筛选规划算法示意图}
-\label{fig:mbdp-structure}
-\end{figure}
 
 \begin{algorithm}[t]
 \caption{基于模型集成的筛选规划算法 (\textbf{MBDP})}
@@ -72,15 +74,15 @@
 \end{algorithm}
 
 
-由于在强化学习中模拟误差越小，算法的收敛性能则越好，观察式（\ref{eq:MBDP-bound}）中的误差上界$D_{\alpha,\beta}(\mathcal{M})$可知，强化学习的算法性能与参数$\alpha$成反比，与参数$\beta$成正比，又根据~\ref{sec:model-method}~节和~\ref{sec:rollout-method}~节的介绍可知，策略的鲁棒性显然与参数$\alpha$成正比，与参数$\beta$成反比，恰好与前面的作用效果相反。因此，本论文可以动态性地调整参数$\alpha,\beta$来取得算法性能和最终策略鲁棒性之间的平衡，从而得到不同属性的强化学习决策策略：
+由于强化学习中模拟误差越小算法的收敛性能则越好，观察式（\ref{eq:MBDP-bound}）中的误差上界$D_{\alpha,\beta}(\mathcal{M})$可知算法性能与参数$\alpha$成反比，与参数$\beta$成正比，又根据~\ref{sec:model-method}~节和~\ref{sec:rollout-method}~节的介绍可知，策略的鲁棒性显然与参数$\alpha$成正比，与参数$\beta$成反比，恰好与前面的作用效果相反。因此，本论文可以动态性地调整参数$\alpha,\beta$来取得算法性能和最终策略鲁棒性之间的平衡，从而得到不同属性的强化学习决策策略：
 
 \begin{itemize}
-    \item \textbf{平衡的决策策略}：将参数$\alpha$和$\beta$调整为适中大小的概率值，适用于一般的普通环境；
+    \item \textbf{平衡的决策策略}：将参数$\alpha$和$\beta$调整为适中概率值，适用于一般的环境；
     \item \textbf{收益性能较高的决策策略}：将参数$\alpha$调整为较小的概率值，$\beta$调整为较大的概率值，适用于相对稳定的环境；
     \item \textbf{鲁棒性较好的决策策略}：将参数$\alpha$调整为较大的概率值，$\beta$调整为较小的概率值，适用于干扰较大的环境。
 \end{itemize}
 
-基于~\ref{sec:model-method}~节和~\ref{sec:rollout-method}~节中提出的集成模型筛选模块和模拟数据筛选模块，将其整合加入基于模型的强化学习算法框架，得到改进后的MBDP算法。MBDP算法首先与环境交互产生样本，用于训练概率模型并集成模拟，然后经过集成模型筛选模块生成模拟数据，再由模拟数据筛选模块生成处理后的模拟样本，最终将更新的模拟样本提供给策略优化公式对策略$\pi(a|s)$进行优化，并进行下一轮迭代。
+基于~\ref{sec:model-method}~节和~\ref{sec:rollout-method}~节中提出的集成模型筛选模块和模拟数据筛选模块，将其整合至基于模型的强化学习算法框架，得到改进后的MBDP算法。MBDP算法首先与环境交互产生样本，用于训练概率模型并集成，然后经过集成模型筛选模块生成模拟数据，再由模拟数据筛选模块生成处理后的模拟样本，最终将更新的模拟样本提供给策略优化公式对策略$\pi(a|s)$进行优化，并进行下一轮迭代。
 
 \section{算法理论分析}
 
